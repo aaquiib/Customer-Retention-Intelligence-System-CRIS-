@@ -1,0 +1,18 @@
+{
+  "random_state": 42,
+  "train_size": 4925,
+  "val_size": 1052,
+  "test_size": 1055,
+  "total_samples": 7032,
+  "train_pct": 70.0,
+  "val_pct": 15.0,
+  "test_pct": 15.0,
+  "class_distribution_train": {
+    "churn_0": 3616,
+    "churn_1": 1309
+  },
+  "class_distribution_test": {
+    "churn_0": 775,
+    "churn_1": 280
+  }
+}

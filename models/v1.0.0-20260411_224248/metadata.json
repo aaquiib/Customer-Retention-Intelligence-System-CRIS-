@@ -1,0 +1,95 @@
+{
+  "project": "Churn Segmentation Decision System",
+  "version": "v1.0.0-20260411_224248",
+  "timestamp": "2026-04-11T22:43:16.299973",
+  "target_variable": "Churn (binary: 0=No Churn, 1=Churn)",
+  "random_state": 42,
+  "data_source": "data/processed/df_with_segment_labels.csv",
+  "training": {
+    "train_samples": 5977,
+    "test_samples": 1055,
+    "num_features": 20,
+    "feature_groups": {
+      "numerical": [
+        "tenure",
+        "MonthlyCharges",
+        "TotalCharges"
+      ],
+      "categorical": [
+        "SeniorCitizen",
+        "PaperlessBilling",
+        "PaymentMethod",
+        "OnlineBackup",
+        "PhoneService",
+        "segment",
+        "StreamingMovies",
+        "TechSupport",
+        "gender",
+        "Dependents",
+        "Partner",
+        "MultipleLines",
+        "Contract",
+        "StreamingTV",
+        "DeviceProtection",
+        "InternetService",
+        "OnlineSecurity"
+      ]
+    },
+    "class_distribution": {
+      "test_churn_0": 775,
+      "test_churn_1": 280,
+      "test_churn_ratio": 0.26540284360189575
+    }
+  },
+  "optimization": {
+    "phase_1": {
+      "method": "RandomizedSearchCV + Manual CatBoost",
+      "xgb_cv_auc": 0.8519,
+      "lgbm_cv_auc": 0.8504,
+      "catboost_cv_auc": 0.8522
+    },
+    "phase_2": {
+      "method": "Optuna (TPE Sampler)",
+      "xgb_trials": 80,
+      "lgbm_trials": 80,
+      "catboost_trials": 60,
+      "xgb_val_auc": 0.8435903960029607,
+      "lgbm_val_auc": 0.8410297927461139,
+      "catboost_val_auc": 0.8431393412287195
+    },
+    "phase_3": {
+      "method": "Final retrain on train+val, evaluate on test",
+      "test_results": [
+        {
+          "Model": "LightGBM",
+          "Test_AUC": 0.8406,
+          "Precision": 0.56,
+          "Recall": 0.7,
+          "F1": 0.6222
+        },
+        {
+          "Model": "CatBoost",
+          "Test_AUC": 0.8367,
+          "Precision": 0.4601,
+          "Recall": 0.8643,
+          "F1": 0.6005
+        },
+        {
+          "Model": "XGBoost",
+          "Test_AUC": 0.8287,
+          "Precision": 0.5282,
+          "Recall": 0.7036,
+          "F1": 0.6034
+        }
+      ]
+    }
+  },
+  "models": {
+    "best_model": "LightGBM",
+    "second_best_model": "CatBoost",
+    "saved_models": [
+      "LightGBM",
+      "CatBoost"
+    ]
+  }
+}

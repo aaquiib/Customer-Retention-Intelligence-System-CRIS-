@@ -1,0 +1,3 @@
+version,release_date,primary_model,test_auc,test_precision,test_recall,test_f1,status,notes
+v1.0.0-20260411_224248,2026-04-11,LightGBM,0.8406,0.5600,0.7000,0.6222,PRODUCTION,Initial release - LightGBM + CatBoost saved with features engineering Phase 3 optimization
+v1.0.0-segmentation-20260411_224248,2026-04-11,KPrototypes,N/A,N/A,N/A,N/A,PRODUCTION,Customer segmentation model - 4 clusters (Loyal High-Value / Low Engagement / Stable Mid-Value / At-risk High-value)
