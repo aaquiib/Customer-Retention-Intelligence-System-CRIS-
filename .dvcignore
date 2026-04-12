@@ -1,0 +1,84 @@
+# Python virtual environments
+churn_venv/
+venv/
+env/
+.venv/
+ENV/
+
+# Python cache and build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Jupyter Notebook exploration (not part of pipeline)
+notebooks/
+*.ipynb
+.ipynb_checkpoints/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# DVC-specific (DVC manages these)
+.dvc/
+.dvc-lock
+
+# Temporary and cache directories
+tmp/
+.cache/
+.tmp/
+*.tmp
+
+# OS-specific
+.AppleDouble/
+.LSOverride/
+._*
+.Spotlight-V100/
+.Trashes/
+ehthumbs.db
+
+# Documentation (optional - keep if you want to track)
+# docs/
+
+# Logs
+*.log
+logs/
