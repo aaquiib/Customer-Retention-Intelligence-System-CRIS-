@@ -1,0 +1,155 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# CHURN-SEGMENTATION MLOPS CONFIGURATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+# DATA PATHS
+data:
+  raw_csv_path: 'data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv'
+  processed_csv_path: 'data/processed/processed_df.csv'
+  segmentation_features_path: 'data/processed/segment_modelling_features.csv'
+  churn_features_path: 'data/processed/churn_features.csv'
+
+models:
+  segmentation_dir: 'models/segmentation/'
+  churn_dir: 'models/churn/'
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DATA PREPROCESSING
+# ══════════════════════════════════════════════════════════════════════════════
+preprocessing:
+  drop_columns: ['customerID']
+  handle_missing_totalcharges: 'drop'  # drop rows where TotalCharges is NaN
+  tenure_zero_action: 'drop'            # drop rows where tenure == 0
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FEATURE ENGINEERING
+# ══════════════════════════════════════════════════════════════════════════════
+feature_engineering:
+  tenure_bins: [0, 12, 36, 72]
+  tenure_labels: ['0-12', '12-36', '36+']
+  is_high_value_method: 'median'        # use median of MonthlyCharges
+
+  streaming_services:
+    - 'StreamingTV'
+    - 'StreamingMovies'
+
+  security_services:
+    - 'OnlineSecurity'
+    - 'OnlineBackup'
+    - 'DeviceProtection'
+    - 'TechSupport'
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SEGMENTATION (K-PROTOTYPES)
+# ══════════════════════════════════════════════════════════════════════════════
+segmentation:
+  n_clusters: 4
+  init_method: 'Cao'
+  n_init: 10
+  random_seed: 42
+
+  segment_labels:
+    0: 'Loyal High-Value'
+    1: 'Low Engagement'
+    2: 'Stable Mid-Value'
+    3: 'At risk High-value'
+
+  # Features used for segmentation
+  numeric_features:
+    - 'tenure'
+    - 'MonthlyCharges'
+    - 'TotalCharges'
+    - 'avg_monthly_spend'
+    - 'charge_gap'
+    - 'streaming_count'
+    - 'security_count'
+    - 'is_high_value'                  # Binary: 0/1
+    - 'payment_electronic_check'       # Binary: 0/1
+    - 'month_to_month_paperless'       # Binary: 0/1
+    - 'no_support_services'            # Binary: 0/1
+    - 'is_isolated'                    # Binary: 0/1
+    - 'fiber_no_security'              # Binary: 0/1
+    - 'no_internet_services'           # Binary: 0/1
+
+  categorical_features:
+    - 'gender'
+    - 'SeniorCitizen'
+    - 'Partner'
+    - 'Dependents'
+    - 'tenure_band'
+    - 'PhoneService'
+    - 'MultipleLines'
+    - 'InternetService'
+    - 'Contract'
+    - 'PaperlessBilling'
+    - 'PaymentMethod'
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHURN MODELING (LIGHTGBM)
+# ══════════════════════════════════════════════════════════════════════════════
+churn_modeling:
+  # Train / Validation / Test split
+  train_size: 0.70
+  val_size: 0.15
+  test_size: 0.15
+  random_seed: 42
+  stratified: true
+
+  # Numeric and categorical columns (for preprocessing)
+  numeric_columns:
+    - 'tenure'
+    - 'MonthlyCharges'
+    - 'TotalCharges'
+    - 'avg_monthly_spend'
+    - 'charge_gap'
+    - 'streaming_count'
+    - 'security_count'
+    - 'is_high_value'
+    - 'payment_electronic_check'
+    - 'month_to_month_paperless'
+    - 'no_support_services'
+    - 'is_isolated'
+    - 'fiber_no_security'
+    - 'no_internet_services'
+  
+  categorical_columns:
+    - 'gender'
+    - 'SeniorCitizen'
+    - 'Partner'
+    - 'Dependents'
+    - 'tenure_band'
+    - 'PhoneService'
+    - 'MultipleLines'
+    - 'InternetService'
+    - 'Contract'
+    - 'PaperlessBilling'
+    - 'PaymentMethod'
+
+  # LightGBM hyperparameters (from hyperparameter tuning)
+  lgbm_hyperparams:
+    n_estimators: 650
+    max_depth: 13
+    learning_rate: 0.008535633844517027
+    num_leaves: 13
+    min_child_samples: 21
+    subsample: 0.7580026562631494
+    colsample_bytree: 0.6066081804708111
+    reg_alpha: 0.15703551247124883
+    reg_lambda: 2.884795719882881
+    scale_pos_weight: 1.710339753731322
+    min_split_gain: 0.43601254903789377
+    subsample_freq: 4
+    verbose: -1
+    n_jobs: -1
+
+  # Threshold tuning
+  threshold_optimization_metric: 'f1'       # 'f1', 'precision', 'recall'
+  default_threshold: 0.5
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LOGGING
+# ══════════════════════════════════════════════════════════════════════════════
+logging:
+  level: 'INFO'                             # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: '%(asctime)s | %(name)s | %(levelname)s | %(message)s'
+  date_format: '%Y-%m-%d %H:%M:%S'
