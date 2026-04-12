@@ -74,12 +74,12 @@ def run_full_pipeline() -> None:
     # Phase 4: Segment Assignment
     logger.info("\n[PHASE 4] SEGMENT ASSIGNMENT")
     logger.info("-" * 80)
-    df_segmentation_with_segments = assign_segments(df_segmentation, cfg)
+    segments = assign_segments(df_segmentation, cfg)
     
     # Add segment columns to processed data for churn modeling
     df_processed = load_csv(cfg['data']['processed_csv_path'])
-    df_processed['segment'] = df_segmentation_with_segments['segment']
-    df_processed['segment_label'] = df_segmentation_with_segments['segment_label']
+    df_processed['segment'] = segments['segment']
+    df_processed['segment_label'] = segments['segment_label']
     
     # Save segmentation results
     save_csv(
@@ -88,11 +88,10 @@ def run_full_pipeline() -> None:
     )
     logger.info(f"✓ Segments assigned and saved")
     logger.info(f"\nSegment distribution:")
-    for label, count in df_segmentation_with_segments['segment_label'].value_counts().items():
+    for label, count in segments['segment_label'].value_counts().items():
         logger.info(f"  {label}: {count} customers")
 
     # Phase 5: Churn Model Training
-    
     logger.info("\n[PHASE 5] CHURN MODEL TRAINING")
     logger.info("-" * 80)
     df_with_segment_labels = load_csv(

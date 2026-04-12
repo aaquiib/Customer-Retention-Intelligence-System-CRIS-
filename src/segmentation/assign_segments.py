@@ -22,7 +22,7 @@ def assign_segments(df: pd.DataFrame, cfg: Dict[str, Any]) -> pd.DataFrame:
         cfg: Configuration dictionary
 
     Returns:
-        DataFrame with 'segment' and 'segment_label' columns added
+        DataFrame with only 'segment' and 'segment_label' columns (7032 × 2)
     """
     df = df.copy()
     logger.info(f"Starting segment assignment | Input shape: {df.shape}")
@@ -92,15 +92,19 @@ def assign_segments(df: pd.DataFrame, cfg: Dict[str, Any]) -> pd.DataFrame:
     logger.info(f"Segments assigned | Distribution: {pd.Series(cluster_labels).value_counts().to_dict()}")
 
     # ─────────────────────────────────────────────────────────────────
-    # ADD SEGMENT COLUMNS
+    # CREATE SEGMENT RESULTS
     # ─────────────────────────────────────────────────────────────────
 
-    df['segment'] = cluster_labels
-    df['segment_label'] = df['segment'].map(segment_labels)
+    # Return only segment columns (not full engineered features)
+    segment_map = pd.Series(cluster_labels).map(segment_labels)
+    segments_df = pd.DataFrame({
+        'segment': cluster_labels,
+        'segment_label': segment_map.values
+    })
 
-    logger.info(f"Segment assignment complete | Output shape: {df.shape}")
+    logger.info(f"Segment assignment complete | Output shape: {segments_df.shape}")
 
-    return df
+    return segments_df
 
 
 if __name__ == "__main__":
@@ -111,18 +115,14 @@ if __name__ == "__main__":
     cfg = load_config()
     setup_logging(cfg['logging'])
 
-    # Load engineered features
+    # Load engineered features for segmentation
     df_features = load_csv(cfg['data']['segmentation_features_path'])
 
-    # Assign segments
-    df_with_segments = assign_segments(df_features, cfg)
+    # Assign segments (returns only 'segment' and 'segment_label' columns)
+    segments = assign_segments(df_features, cfg)
 
-    # Save output
-    save_csv(df_with_segments, cfg['data']['segmentation_features_path'].replace(
-        'segment_modelling_features',
-        'df_with_segment_labels'
-    ))
-
+    # Display results
     print(f"\n✓ Segment assignment complete")
+    print(f"  Output shape: {segments.shape}")
     print(f"\nSegment distribution:")
-    print(df_with_segments['segment_label'].value_counts())
+    print(segments['segment_label'].value_counts())
