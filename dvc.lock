@@ -1,0 +1,317 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python -m src.data.preprocess
+    deps:
+    - path: data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+      hash: md5
+      md5: 0f9de68e012bd3aed5fa7cdc9fc421af
+      size: 977501
+    - path: src/config.py
+      hash: md5
+      md5: 004a9fc2c7db7fa8ed18999668f70b78
+      size: 1438
+    - path: src/data/ingest.py
+      hash: md5
+      md5: f9c52203f5c08d6db58f6efb944c1065
+      size: 1223
+    - path: src/data/preprocess.py
+      hash: md5
+      md5: 9106738db851dcd221147b021ac90ecb
+      size: 3114
+    - path: src/utils/io_utils.py
+      hash: md5
+      md5: 619415b6de665b8aa4fc2e55dfdd18e3
+      size: 1605
+    - path: src/utils/logging_config.py
+      hash: md5
+      md5: 861f569e807f472f53235a30ca912cb8
+      size: 1318
+    params:
+      config/config.yaml:
+        preprocessing:
+          drop_columns:
+          - customerID
+          handle_missing_totalcharges: drop
+          tenure_zero_action: drop
+    outs:
+    - path: data/processed/processed_df.csv
+      hash: md5
+      md5: 93ffeb8f997fafcc82ec5507bf0bd947
+      size: 899107
+  features:
+    cmd: python -m src.features.build_features
+    deps:
+    - path: data/processed/processed_df.csv
+      hash: md5
+      md5: 93ffeb8f997fafcc82ec5507bf0bd947
+      size: 899107
+    - path: src/config.py
+      hash: md5
+      md5: 004a9fc2c7db7fa8ed18999668f70b78
+      size: 1438
+    - path: src/features/build_features.py
+      hash: md5
+      md5: faf22195d70749908bf246ad014e4cb8
+      size: 2456
+    - path: src/features/engineering.py
+      hash: md5
+      md5: 4c9e5177f6cb58b08a2614668bca2f6c
+      size: 6978
+    - path: src/utils/io_utils.py
+      hash: md5
+      md5: 619415b6de665b8aa4fc2e55dfdd18e3
+      size: 1605
+    - path: src/utils/logging_config.py
+      hash: md5
+      md5: 861f569e807f472f53235a30ca912cb8
+      size: 1318
+    params:
+      config/config.yaml:
+        feature_engineering:
+          tenure_bins:
+          - 0
+          - 12
+          - 36
+          - 72
+          tenure_labels:
+          - 0-12
+          - 12-36
+          - 36+
+          is_high_value_method: median
+          streaming_services:
+          - StreamingTV
+          - StreamingMovies
+          security_services:
+          - OnlineSecurity
+          - OnlineBackup
+          - DeviceProtection
+          - TechSupport
+    outs:
+    - path: data/processed/segment_modelling_features.csv
+      hash: md5
+      md5: d699c01c752b8c9028ecb023cace239e
+      size: 978051
+  segmentation_train:
+    cmd: python -m src.segmentation.train_segments
+    deps:
+    - path: data/processed/segment_modelling_features.csv
+      hash: md5
+      md5: d699c01c752b8c9028ecb023cace239e
+      size: 978051
+    - path: src/config.py
+      hash: md5
+      md5: 004a9fc2c7db7fa8ed18999668f70b78
+      size: 1438
+    - path: src/segmentation/train_segments.py
+      hash: md5
+      md5: 47707250c7ee6d8d370da1eebd781b0b
+      size: 5899
+    - path: src/utils/io_utils.py
+      hash: md5
+      md5: 619415b6de665b8aa4fc2e55dfdd18e3
+      size: 1605
+    - path: src/utils/logging_config.py
+      hash: md5
+      md5: 861f569e807f472f53235a30ca912cb8
+      size: 1318
+    params:
+      config/config.yaml:
+        segmentation.categorical_features:
+        - gender
+        - SeniorCitizen
+        - Partner
+        - Dependents
+        - tenure_band
+        - is_high_value
+        - PhoneService
+        - MultipleLines
+        - InternetService
+        - Contract
+        - PaperlessBilling
+        - PaymentMethod
+        - payment_electronic_check
+        - month_to_month_paperless
+        - no_support_services
+        - is_isolated
+        - fiber_no_security
+        - no_internet_services
+        segmentation.init_method: Cao
+        segmentation.n_clusters: 4
+        segmentation.n_init: 10
+        segmentation.numeric_features:
+        - tenure
+        - MonthlyCharges
+        - TotalCharges
+        - avg_monthly_spend
+        - charge_gap
+        - streaming_count
+        - security_count
+        segmentation.random_seed: 42
+    outs:
+    - path: models/segmentation/
+      hash: md5
+      md5: aab1e26ec1e97d5ec7b7b753c10d7800.dir
+      size: 19901
+      nfiles: 5
+  segmentation_assign:
+    cmd: python -m src.segmentation.assign_segments
+    deps:
+    - path: data/processed/segment_modelling_features.csv
+      hash: md5
+      md5: d699c01c752b8c9028ecb023cace239e
+      size: 978051
+    - path: models/segmentation/
+      hash: md5
+      md5: aab1e26ec1e97d5ec7b7b753c10d7800.dir
+      size: 19901
+      nfiles: 5
+    - path: src/config.py
+      hash: md5
+      md5: 004a9fc2c7db7fa8ed18999668f70b78
+      size: 1438
+    - path: src/segmentation/assign_segments.py
+      hash: md5
+      md5: e0e4f1d3ab4d42adb68e5b64ac0df2d4
+      size: 6599
+    - path: src/utils/io_utils.py
+      hash: md5
+      md5: 619415b6de665b8aa4fc2e55dfdd18e3
+      size: 1605
+    - path: src/utils/logging_config.py
+      hash: md5
+      md5: 861f569e807f472f53235a30ca912cb8
+      size: 1318
+    params:
+      config/config.yaml:
+        segmentation.categorical_features:
+        - gender
+        - SeniorCitizen
+        - Partner
+        - Dependents
+        - tenure_band
+        - is_high_value
+        - PhoneService
+        - MultipleLines
+        - InternetService
+        - Contract
+        - PaperlessBilling
+        - PaymentMethod
+        - payment_electronic_check
+        - month_to_month_paperless
+        - no_support_services
+        - is_isolated
+        - fiber_no_security
+        - no_internet_services
+        segmentation.numeric_features:
+        - tenure
+        - MonthlyCharges
+        - TotalCharges
+        - avg_monthly_spend
+        - charge_gap
+        - streaming_count
+        - security_count
+    outs:
+    - path: data/processed/df_with_segment_labels.csv
+      hash: md5
+      md5: 39b76b9eeb034a7842488abd785d38b9
+      size: 1032441
+  churn_train:
+    cmd: python -m src.churn.train
+    deps:
+    - path: data/processed/df_with_segment_labels.csv
+      hash: md5
+      md5: 39b76b9eeb034a7842488abd785d38b9
+      size: 1032441
+    - path: src/churn/evaluate.py
+      hash: md5
+      md5: f46f40be1a8b924438072d200730d676
+      size: 5053
+    - path: src/churn/train.py
+      hash: md5
+      md5: 745074eb3520776ad86ab8a2de5790d7
+      size: 12124
+    - path: src/config.py
+      hash: md5
+      md5: 004a9fc2c7db7fa8ed18999668f70b78
+      size: 1438
+    - path: src/utils/io_utils.py
+      hash: md5
+      md5: 619415b6de665b8aa4fc2e55dfdd18e3
+      size: 1605
+    - path: src/utils/logging_config.py
+      hash: md5
+      md5: 861f569e807f472f53235a30ca912cb8
+      size: 1318
+    - path: src/utils/metrics_saver.py
+      hash: md5
+      md5: 1d0c0797ccf8613e620ffc38fd0fd79e
+      size: 6270
+    params:
+      config/config.yaml:
+        churn_modeling:
+          train_size: 0.7
+          val_size: 0.15
+          test_size: 0.15
+          random_seed: 42
+          stratified: true
+          numeric_columns:
+          - tenure
+          - MonthlyCharges
+          - TotalCharges
+          categorical_columns:
+          - gender
+          - SeniorCitizen
+          - Partner
+          - Dependents
+          - PhoneService
+          - MultipleLines
+          - InternetService
+          - OnlineSecurity
+          - OnlineBackup
+          - DeviceProtection
+          - TechSupport
+          - StreamingTV
+          - StreamingMovies
+          - Contract
+          - PaperlessBilling
+          - PaymentMethod
+          - segment
+          lgbm_hyperparams:
+            n_estimators: 650
+            max_depth: 13
+            learning_rate: 0.008535633844517027
+            num_leaves: 13
+            min_child_samples: 21
+            subsample: 0.7580026562631494
+            colsample_bytree: 0.6066081804708111
+            reg_alpha: 0.15703551247124883
+            reg_lambda: 2.884795719882881
+            scale_pos_weight: 1.710339753731322
+            min_split_gain: 0.43601254903789377
+            subsample_freq: 4
+            verbose: -1
+            n_jobs: -1
+          threshold_optimization_metric: f1
+          default_threshold: 0.5
+    outs:
+    - path: models/churn/lgbm_churn_model.pkl
+      hash: md5
+      md5: 8ac72bc22b7fd24de973e22768e3263c
+      size: 1023988
+    - path: models/churn/metrics_history.csv
+      hash: md5
+      md5: 9b37fe21c10f533c312172806add354d
+      size: 589
+    - path: models/churn/metrics_latest.json
+      hash: md5
+      md5: dd58a70c3f1e8800e1ec8c46d5b2062d
+      size: 1566
+    - path: models/churn/preprocessor.pkl
+      hash: md5
+      md5: b082c858ef85a06e8a47045731d8d617
+      size: 7320
+    - path: models/churn/threshold_meta.json
+      hash: md5
+      md5: 6eb80df0e9daa984601985179123708f
+      size: 199

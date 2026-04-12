@@ -108,9 +108,9 @@ def assign_segments(df: pd.DataFrame, cfg: Dict[str, Any]) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    # Entry point for testing
+    # Entry point for DVC pipeline
     from src.config import load_config
-    from src.utils import load_csv, setup_logging
+    from src.utils import load_csv, save_csv, setup_logging
 
     cfg = load_config()
     setup_logging(cfg['logging'])
@@ -121,8 +121,19 @@ if __name__ == "__main__":
     # Assign segments (returns only 'segment' and 'segment_label' columns)
     segments = assign_segments(df_features, cfg)
 
+    # Load original preprocessed data and add segment columns
+    df_processed = load_csv(cfg['data']['processed_csv_path'])
+    df_processed['segment'] = segments['segment'].values
+    df_processed['segment_label'] = segments['segment_label'].values
+    
+    # Save combined data for churn modeling
+    output_path = cfg['data']['processed_csv_path'].replace('processed_df', 'df_with_segment_labels')
+    save_csv(df_processed, output_path)
+
+    logger.info(f"Saved data with segments to {output_path}")
+
     # Display results
     print(f"\n✓ Segment assignment complete")
-    print(f"  Output shape: {segments.shape}")
+    print(f"  Output shape: {df_processed.shape}")
     print(f"\nSegment distribution:")
-    print(segments['segment_label'].value_counts())
+    print(df_processed['segment_label'].value_counts())

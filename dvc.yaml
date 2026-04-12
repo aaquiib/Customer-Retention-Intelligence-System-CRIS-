@@ -1,0 +1,89 @@
+stages:
+  preprocess:
+    cmd: python -m src.data.preprocess
+    deps:
+      - data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+      - src/data/preprocess.py
+      - src/data/ingest.py
+      - src/config.py
+      - src/utils/io_utils.py
+      - src/utils/logging_config.py
+    params:
+      - config/config.yaml:
+          - preprocessing
+    outs:
+      - data/processed/processed_df.csv
+
+  features:
+    cmd: python -m src.features.build_features
+    deps:
+      - data/processed/processed_df.csv
+      - src/features/build_features.py
+      - src/features/engineering.py
+      - src/config.py
+      - src/utils/io_utils.py
+      - src/utils/logging_config.py
+    params:
+      - config/config.yaml:
+          - feature_engineering
+    outs:
+      - data/processed/segment_modelling_features.csv
+
+  segmentation_train:
+    cmd: python -m src.segmentation.train_segments
+    deps:
+      - data/processed/segment_modelling_features.csv
+      - src/segmentation/train_segments.py
+      - src/config.py
+      - src/utils/io_utils.py
+      - src/utils/logging_config.py
+    params:
+      - config/config.yaml:
+          - segmentation.n_clusters
+          - segmentation.init_method
+          - segmentation.n_init
+          - segmentation.random_seed
+          - segmentation.numeric_features
+          - segmentation.categorical_features
+    outs:
+      - models/segmentation/:
+          persist: true
+
+  segmentation_assign:
+    cmd: python -m src.segmentation.assign_segments
+    deps:
+      - data/processed/segment_modelling_features.csv
+      - models/segmentation/
+      - src/segmentation/assign_segments.py
+      - src/config.py
+      - src/utils/io_utils.py
+      - src/utils/logging_config.py
+    params:
+      - config/config.yaml:
+          - segmentation.numeric_features
+          - segmentation.categorical_features
+    outs:
+      - data/processed/df_with_segment_labels.csv
+
+  churn_train:
+    cmd: python -m src.churn.train
+    deps:
+      - data/processed/df_with_segment_labels.csv
+      - src/churn/train.py
+      - src/churn/evaluate.py
+      - src/config.py
+      - src/utils/io_utils.py
+      - src/utils/logging_config.py
+      - src/utils/metrics_saver.py
+    params:
+      - config/config.yaml:
+          - churn_modeling
+    metrics:
+      - models/churn/metrics_latest.json:
+          cache: false
+      - models/churn/metrics_history.csv:
+          cache: false
+    outs:
+      - models/churn/lgbm_churn_model.pkl
+      - models/churn/preprocessor.pkl
+      - models/churn/threshold_meta.json
