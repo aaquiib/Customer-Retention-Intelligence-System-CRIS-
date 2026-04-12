@@ -31,9 +31,24 @@ def build_features(cfg: Dict[str, Any]) -> None:
 
     # Step 3: Engineer features
     df_engineered = engineer_features(df_preprocessed, cfg)
-    save_csv(df_engineered, cfg['data']['segmentation_features_path'])
+    
+    # Step 4: Select only segmentation features (25 columns) in EXACT order
+    seg_feature_cols = [
+        'gender', 'SeniorCitizen', 'Partner', 'Dependents', 'tenure',
+        'tenure_band', 'MonthlyCharges', 'TotalCharges', 'avg_monthly_spend',
+        'charge_gap', 'is_high_value', 'PhoneService', 'MultipleLines',
+        'InternetService', 'streaming_count', 'security_count', 'Contract',
+        'PaperlessBilling', 'PaymentMethod', 'payment_electronic_check',
+        'month_to_month_paperless', 'no_support_services', 'is_isolated',
+        'fiber_no_security', 'no_internet_services'
+    ]
+    
+    df_segmentation = df_engineered[seg_feature_cols]
+    
+    save_csv(df_segmentation, cfg['data']['segmentation_features_path'])
+    logger.info(f"Selected {len(seg_feature_cols)} segmentation features | Shape: {df_segmentation.shape}")
 
-    # Also save a copy for churn modeling (without segmentation labels)
+    # Also save full engineered for churn modeling (includes all 32 features)
     save_csv(df_engineered, cfg['data']['churn_features_path'])
 
     logger.info("=" * 80)

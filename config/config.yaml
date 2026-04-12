@@ -55,6 +55,34 @@ segmentation:
     3: 'At risk High-value'
 
   # Features used for segmentation
+  # Features used for segmentation (25 columns in exact order)
+  segmentation_features:
+    - 'gender'
+    - 'SeniorCitizen'
+    - 'Partner'
+    - 'Dependents'
+    - 'tenure'
+    - 'tenure_band'
+    - 'MonthlyCharges'
+    - 'TotalCharges'
+    - 'avg_monthly_spend'
+    - 'charge_gap'
+    - 'is_high_value'
+    - 'PhoneService'
+    - 'MultipleLines'
+    - 'InternetService'
+    - 'streaming_count'
+    - 'security_count'
+    - 'Contract'
+    - 'PaperlessBilling'
+    - 'PaymentMethod'
+    - 'payment_electronic_check'
+    - 'month_to_month_paperless'
+    - 'no_support_services'
+    - 'is_isolated'
+    - 'fiber_no_security'
+    - 'no_internet_services'
+
   numeric_features:
     - 'tenure'
     - 'MonthlyCharges'
@@ -63,13 +91,6 @@ segmentation:
     - 'charge_gap'
     - 'streaming_count'
     - 'security_count'
-    - 'is_high_value'                  # Binary: 0/1
-    - 'payment_electronic_check'       # Binary: 0/1
-    - 'month_to_month_paperless'       # Binary: 0/1
-    - 'no_support_services'            # Binary: 0/1
-    - 'is_isolated'                    # Binary: 0/1
-    - 'fiber_no_security'              # Binary: 0/1
-    - 'no_internet_services'           # Binary: 0/1
 
   categorical_features:
     - 'gender'
@@ -77,12 +98,19 @@ segmentation:
     - 'Partner'
     - 'Dependents'
     - 'tenure_band'
+    - 'is_high_value'
     - 'PhoneService'
     - 'MultipleLines'
     - 'InternetService'
     - 'Contract'
     - 'PaperlessBilling'
     - 'PaymentMethod'
+    - 'payment_electronic_check'
+    - 'month_to_month_paperless'
+    - 'no_support_services'
+    - 'is_isolated'
+    - 'fiber_no_security'
+    - 'no_internet_services'
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CHURN MODELING (LIGHTGBM)
@@ -104,13 +132,6 @@ churn_modeling:
     - 'charge_gap'
     - 'streaming_count'
     - 'security_count'
-    - 'is_high_value'
-    - 'payment_electronic_check'
-    - 'month_to_month_paperless'
-    - 'no_support_services'
-    - 'is_isolated'
-    - 'fiber_no_security'
-    - 'no_internet_services'
   
   categorical_columns:
     - 'gender'
@@ -118,12 +139,19 @@ churn_modeling:
     - 'Partner'
     - 'Dependents'
     - 'tenure_band'
+    - 'is_high_value'
     - 'PhoneService'
     - 'MultipleLines'
     - 'InternetService'
     - 'Contract'
     - 'PaperlessBilling'
     - 'PaymentMethod'
+    - 'payment_electronic_check'
+    - 'month_to_month_paperless'
+    - 'no_support_services'
+    - 'is_isolated'
+    - 'fiber_no_security'
+    - 'no_internet_services'
 
   # LightGBM hyperparameters (from hyperparameter tuning)
   lgbm_hyperparams:

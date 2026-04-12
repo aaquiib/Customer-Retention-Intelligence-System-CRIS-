@@ -45,47 +45,68 @@ def run_full_pipeline() -> None:
     logger.info("\n[PHASE 2] FEATURE ENGINEERING")
     logger.info("-" * 80)
     df_engineered = engineer_features(df_preprocessed, cfg)
-    save_csv(df_engineered, cfg['data']['segmentation_features_path'])
-    logger.info(f"✓ Engineered features saved")
+    
+    # Select segmentation features in EXACT order
+    seg_feature_cols = [
+        'gender', 'SeniorCitizen', 'Partner', 'Dependents', 'tenure',
+        'tenure_band', 'MonthlyCharges', 'TotalCharges', 'avg_monthly_spend',
+        'charge_gap', 'is_high_value', 'PhoneService', 'MultipleLines',
+        'InternetService', 'streaming_count', 'security_count', 'Contract',
+        'PaperlessBilling', 'PaymentMethod', 'payment_electronic_check',
+        'month_to_month_paperless', 'no_support_services', 'is_isolated',
+        'fiber_no_security', 'no_internet_services'
+    ]
+    
+    df_segmentation = df_engineered[seg_feature_cols]
+    
+    save_csv(df_segmentation, cfg['data']['segmentation_features_path'])
+    logger.info(f"✓ Engineered features saved | Shape: {df_segmentation.shape}")
 
     # Phase 3: Segmentation Training
     logger.info("\n[PHASE 3] SEGMENTATION MODEL TRAINING")
     logger.info("-" * 80)
-    kproto, scaler, cat_idx, metadata = train_segmentation_model(df_engineered, cfg)
+    kproto, scaler, cat_idx, metadata = train_segmentation_model(df_segmentation, cfg)
     logger.info(f"✓ Segmentation model trained and saved")
 
     # Phase 4: Segment Assignment
     logger.info("\n[PHASE 4] SEGMENT ASSIGNMENT")
     logger.info("-" * 80)
-    df_with_segments = assign_segments(df_engineered, cfg)
+    df_segmentation_with_segments = assign_segments(df_segmentation, cfg)
+    
+    # Add segment columns back to full engineered features for churn modeling
+    df_with_segments = df_engineered.copy()
+    df_with_segments['segment'] = df_segmentation_with_segments['segment']
+    df_with_segments['segment_label'] = df_segmentation_with_segments['segment_label']
+    
+    # Save segmentation results
     save_csv(
-        df_with_segments,
+        df_segmentation_with_segments,
         cfg['data']['processed_csv_path'].replace('processed_df', 'df_with_segment_labels')
     )
     logger.info(f"✓ Segments assigned and saved")
     logger.info(f"\nSegment distribution:")
-    for label, count in df_with_segments['segment_label'].value_counts().items():
+    for label, count in df_segmentation_with_segments['segment_label'].value_counts().items():
         logger.info(f"  {label}: {count} customers")
 
-    # Phase 5: Churn Model Training
-    logger.info("\n[PHASE 5] CHURN MODEL TRAINING")
-    logger.info("-" * 80)
-    lgbm_model, preprocessor, opt_threshold, threshold_meta = train_churn_model(
-        df_with_segments,
-        cfg
-    )
-    logger.info(f"✓ Churn model trained and saved")
-    logger.info(f"  Test ROC-AUC: {threshold_meta['test_roc_auc']:.4f}")
-    logger.info(f"  Optimal threshold: {opt_threshold:.4f}")
+    # # Phase 5: Churn Model Training
+    # logger.info("\n[PHASE 5] CHURN MODEL TRAINING")
+    # logger.info("-" * 80)
+    # lgbm_model, preprocessor, opt_threshold, threshold_meta = train_churn_model(
+    #     df_with_segments,
+    #     cfg
+    # )
+    # logger.info(f"✓ Churn model trained and saved")
+    # logger.info(f"  Test ROC-AUC: {threshold_meta['test_roc_auc']:.4f}")
+    # logger.info(f"  Optimal threshold: {opt_threshold:.4f}")
 
-    logger.info("\n" + "=" * 80)
-    logger.info("PIPELINE COMPLETE")
-    logger.info("=" * 80)
-    logger.info(f"\nArtifacts saved to:")
-    logger.info(f"  - Data: {cfg['data']['processed_csv_path']}")
-    logger.info(f"  - Segmentation model: {cfg['models']['segmentation_dir']}")
-    logger.info(f"  - Churn model: {cfg['models']['churn_dir']}")
-    logger.info("=" * 80 + "\n")
+    # logger.info("\n" + "=" * 80)
+    # logger.info("PIPELINE COMPLETE")
+    # logger.info("=" * 80)
+    # logger.info(f"\nArtifacts saved to:")
+    # logger.info(f"  - Data: {cfg['data']['processed_csv_path']}")
+    # logger.info(f"  - Segmentation model: {cfg['models']['segmentation_dir']}")
+    # logger.info(f"  - Churn model: {cfg['models']['churn_dir']}")
+    # logger.info("=" * 80 + "\n")
 
 
 if __name__ == "__main__":

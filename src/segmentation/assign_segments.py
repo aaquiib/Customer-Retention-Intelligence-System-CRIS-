@@ -50,6 +50,7 @@ def assign_segments(df: pd.DataFrame, cfg: Dict[str, Any]) -> pd.DataFrame:
 
     expected_num_cols = feature_metadata.get('numeric_columns', [])
     expected_cat_cols = feature_metadata.get('categorical_columns', [])
+    seg_feature_cols = feature_metadata.get('segmentation_features', [])
 
     try:
         validate_feature_consistency(
@@ -80,13 +81,12 @@ def assign_segments(df: pd.DataFrame, cfg: Dict[str, Any]) -> pd.DataFrame:
     # PREDICT SEGMENTS
     # ─────────────────────────────────────────────────────────────────
 
-    # Create feature matrix with ONLY selected features
-    feature_cols = expected_num_cols + expected_cat_cols
-    X = df[feature_cols].to_numpy()
+    # Create feature matrix with features in EXACT order
+    X = df[seg_feature_cols].to_numpy()
     logger.info(f"Prediction data shape: {X.shape}")
 
-    # Calculate categorical indices RELATIVE to feature_cols
-    cat_idx = [feature_cols.index(col) for col in expected_cat_cols]
+    # Calculate categorical indices RELATIVE to seg_feature_cols order
+    cat_idx = [seg_feature_cols.index(col) for col in expected_cat_cols if col in seg_feature_cols]
 
     cluster_labels = kproto.predict(X, categorical=cat_idx)
     logger.info(f"Segments assigned | Distribution: {pd.Series(cluster_labels).value_counts().to_dict()}")

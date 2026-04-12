@@ -32,23 +32,17 @@ def train_segmentation_model(
 
     seg_cfg = cfg['segmentation']
 
-    # Extract numeric and categorical columns from config
+    # Extract segmentation features in EXACT order from config
+    seg_feature_cols = seg_cfg.get('segmentation_features', [])
+    seg_feature_cols = [col for col in seg_feature_cols if col in df.columns]
+    
+    # Also get numeric and categorical for processing
     num_cols = seg_cfg.get('numeric_features', [])
     cat_cols = seg_cfg.get('categorical_features', [])
-
-    # Filter to only columns that exist in data
     num_cols = [col for col in num_cols if col in df.columns]
     cat_cols = [col for col in cat_cols if col in df.columns]
 
     logger.info(f"Numeric features: {len(num_cols)} | Categorical features: {len(cat_cols)}")
-
-    # Validate feature consistency
-    missing_num = [c for c in seg_cfg['numeric_features'] if c not in df.columns]
-    missing_cat = [c for c in seg_cfg['categorical_features'] if c not in df.columns]
-    if missing_num:
-        logger.warning(f"Missing numeric features: {missing_num}")
-    if missing_cat:
-        logger.warning(f"Missing categorical features: {missing_cat}")
 
     # ─────────────────────────────────────────────────────────────────
     # DATA PREPARATION
@@ -66,13 +60,12 @@ def train_segmentation_model(
     df[num_cols] = scaler.fit_transform(df[num_cols])
     logger.info(f"Scaled {len(num_cols)} numeric features")
 
-    # Prepare feature matrix with ONLY selected features
-    feature_cols = num_cols + cat_cols
-    X = df[feature_cols].to_numpy()
+    # Prepare feature matrix with features in EXACT ORDER
+    X = df[seg_feature_cols].to_numpy()
     logger.info(f"Feature matrix shape: {X.shape}")
 
-    # Get categorical column indices (RELATIVE to feature_cols, not entire df)
-    cat_idx = [feature_cols.index(col) for col in cat_cols]
+    # Get categorical column indices (RELATIVE to seg_feature_cols order)
+    cat_idx = [seg_feature_cols.index(col) for col in cat_cols if col in seg_feature_cols]
     logger.info(f"Categorical indices: {cat_idx}")
 
     # ─────────────────────────────────────────────────────────────────
@@ -117,7 +110,7 @@ def train_segmentation_model(
     feature_metadata = {
         "numeric_columns": num_cols,
         "categorical_columns": cat_cols,
-        "feature_order": list(df.columns),
+        "segmentation_features": seg_feature_cols,  # EXACT order for prediction
         "n_clusters": n_clusters,
         "random_seed": random_seed
     }
