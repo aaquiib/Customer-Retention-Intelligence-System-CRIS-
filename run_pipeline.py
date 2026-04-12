@@ -73,14 +73,14 @@ def run_full_pipeline() -> None:
     logger.info("-" * 80)
     df_segmentation_with_segments = assign_segments(df_segmentation, cfg)
     
-    # Add segment columns back to full engineered features for churn modeling
-    df_with_segments = df_engineered.copy()
-    df_with_segments['segment'] = df_segmentation_with_segments['segment']
-    df_with_segments['segment_label'] = df_segmentation_with_segments['segment_label']
+    # Add segment columns to processed data for churn modeling
+    df_processed = load_csv(cfg['data']['processed_csv_path'])
+    df_processed['segment'] = df_segmentation_with_segments['segment']
+    df_processed['segment_label'] = df_segmentation_with_segments['segment_label']
     
     # Save segmentation results
     save_csv(
-        df_segmentation_with_segments,
+        df_processed,
         cfg['data']['processed_csv_path'].replace('processed_df', 'df_with_segment_labels')
     )
     logger.info(f"✓ Segments assigned and saved")
@@ -91,8 +91,11 @@ def run_full_pipeline() -> None:
     # # Phase 5: Churn Model Training
     # logger.info("\n[PHASE 5] CHURN MODEL TRAINING")
     # logger.info("-" * 80)
+    # df_with_segment_labels = load_csv(
+    #     cfg['data']['processed_csv_path'].replace('processed_df', 'df_with_segment_labels')
+    # )
     # lgbm_model, preprocessor, opt_threshold, threshold_meta = train_churn_model(
-    #     df_with_segments,
+    #     df_with_segment_labels,
     #     cfg
     # )
     # logger.info(f"✓ Churn model trained and saved")
