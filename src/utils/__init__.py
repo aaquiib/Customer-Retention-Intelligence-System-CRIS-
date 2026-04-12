@@ -13,6 +13,12 @@ from src.utils.io_utils import (
     save_model,
 )
 from src.utils.logging_config import setup_logging
+from src.utils.metrics_saver import (
+    append_metrics_to_csv,
+    build_metrics_payload,
+    save_metrics_to_json,
+    validate_metrics,
+)
 
 __all__ = [
     'setup_logging',
@@ -24,4 +30,8 @@ __all__ = [
     'save_json',
     'validate_feature_consistency',
     'print_feature_validation_report',
+    'save_metrics_to_json',
+    'append_metrics_to_csv',
+    'build_metrics_payload',
+    'validate_metrics',
 ]

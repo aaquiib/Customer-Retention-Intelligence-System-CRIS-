@@ -21,6 +21,7 @@ def evaluate_model(
     y_pred: np.ndarray,
     y_proba: np.ndarray = None,
     threshold: float = 0.5,
+    dataset_name: str = "test",
     cfg: Dict[str, Any] = None
 ) -> Dict[str, Any]:
     """
@@ -33,6 +34,7 @@ def evaluate_model(
         y_pred: Predicted labels (0/1)
         y_proba: Predicted probabilities (for ROC-AUC) - optional
         threshold: Decision threshold (default 0.5)
+        dataset_name: Name of dataset being evaluated ("train", "val", "test") - optional
         cfg: Configuration dictionary - optional
 
     Returns:
@@ -66,13 +68,55 @@ def evaluate_model(
     clf_report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
     results['classification_report'] = clf_report
 
-    logger.info(f"Evaluation at threshold {threshold:.4f}:")
+    logger.info(f"Evaluation on {dataset_name} set at threshold {threshold:.4f}:")
     logger.info(f"  Precision: {results['metrics']['precision']:.4f}")
     logger.info(f"  Recall: {results['metrics']['recall']:.4f}")
     logger.info(f"  F1: {results['metrics']['f1']:.4f}")
     if 'roc_auc' in results['metrics']:
         logger.info(f"  ROC-AUC: {results['metrics']['roc_auc']:.4f}")
 
+    return results
+
+
+def evaluate_model_on_splits(
+    splits: Dict[str, Dict[str, np.ndarray]],
+    threshold: float = 0.5,
+    cfg: Dict[str, Any] = None
+) -> Dict[str, Dict[str, Any]]:
+    """
+    Evaluate model on multiple dataset splits (train, val, test).
+
+    Args:
+        splits: Dictionary mapping split names to {"y_true": array, "y_pred": array, "y_proba": array}
+            e.g., {"train": {"y_true": [...], "y_pred": [...], "y_proba": [...]}, "val": {...}, "test": {...}}
+        threshold: Decision threshold (applied to all splits)
+        cfg: Configuration dictionary - optional
+
+    Returns:
+        Dictionary mapping split names to evaluation results:
+        {"train": {eval_result}, "val": {eval_result}, "test": {eval_result}}
+    """
+    results = {}
+
+    for split_name, split_data in splits.items():
+        y_true = split_data.get('y_true')
+        y_pred = split_data.get('y_pred')
+        y_proba = split_data.get('y_proba')
+
+        if y_true is None or y_pred is None:
+            logger.warning(f"Skipping split '{split_name}': missing y_true or y_pred")
+            continue
+
+        results[split_name] = evaluate_model(
+            y_true,
+            y_pred,
+            y_proba=y_proba,
+            threshold=threshold,
+            dataset_name=split_name,
+            cfg=cfg
+        )
+
+    logger.info(f"Evaluation complete on {len(results)} splits")
     return results
 
 

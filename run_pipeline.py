@@ -8,9 +8,53 @@ from src.data import load_raw_data, preprocess_data
 from src.features import engineer_features
 from src.features.build_features import build_features
 from src.segmentation import assign_segments, train_segmentation_model
-from src.utils import load_csv, save_csv, setup_logging
+from src.utils import load_csv, load_json, save_csv, setup_logging
 
 logger = logging.getLogger(__name__)
+
+
+def _log_metrics_summary(cfg: dict) -> None:
+    """
+    Log a summary of saved evaluation metrics.
+
+    Args:
+        cfg: Configuration dictionary with paths
+    """
+    try:
+        metrics_json_path = f"{cfg['models']['churn_dir']}metrics_latest.json"
+        metrics = load_json(metrics_json_path)
+
+        logger.info("\n" + "=" * 80)
+        logger.info("CHURN MODEL EVALUATION METRICS SUMMARY")
+        logger.info("=" * 80)
+
+        # Print metrics by split
+        for split_name, split_metrics in metrics.get('split_metrics', {}).items():
+            logger.info(f"\n{split_name.upper()} SET:")
+            logger.info(f"  Precision: {split_metrics.get('precision', 0):.4f}")
+            logger.info(f"  Recall:    {split_metrics.get('recall', 0):.4f}")
+            logger.info(f"  F1-Score:  {split_metrics.get('f1', 0):.4f}")
+            logger.info(f"  Accuracy:  {split_metrics.get('accuracy', 0):.4f}")
+            logger.info(f"  ROC-AUC:   {split_metrics.get('roc_auc', 0):.4f}")
+
+            if 'confusion_matrix' in split_metrics:
+                cm = split_metrics['confusion_matrix']
+                logger.info(f"  Confusion Matrix: TP={cm['tp']}, TN={cm['tn']}, FP={cm['fp']}, FN={cm['fn']}")
+
+        logger.info(f"\nModel Configuration:")
+        model_cfg = metrics.get('model_config', {})
+        logger.info(f"  Best Threshold:   {model_cfg.get('best_threshold', 0):.4f}")
+        logger.info(f"  Metric Optimized: {model_cfg.get('metric_optimized', 'N/A')}")
+        logger.info(f"  N Estimators:     {model_cfg.get('n_estimators', 0)}")
+        logger.info(f"  Random Seed:      {model_cfg.get('random_seed', 0)}")
+
+        logger.info(f"\nMetrics saved to:")
+        logger.info(f"  - JSON: {metrics_json_path}")
+        logger.info(f"  - CSV:  {cfg['models']['churn_dir']}metrics_history.csv")
+        logger.info("=" * 80 + "\n")
+
+    except Exception as e:
+        logger.warning(f"Could not load metrics summary: {e}")
 
 
 def run_full_pipeline() -> None:
@@ -104,6 +148,9 @@ def run_full_pipeline() -> None:
     logger.info(f"✓ Churn model trained and saved")
     logger.info(f"  Test ROC-AUC: {threshold_meta['test_roc_auc']:.4f}")
     logger.info(f"  Optimal threshold: {opt_threshold:.4f}")
+
+    # Log metrics summary
+    _log_metrics_summary(cfg)
 
     logger.info("\n" + "=" * 80)
     logger.info("PIPELINE COMPLETE")

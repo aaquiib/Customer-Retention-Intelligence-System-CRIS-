@@ -11,6 +11,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
 from src.utils import save_json, save_model
+from src.utils.metrics_saver import save_metrics_to_json, append_metrics_to_csv, build_metrics_payload, validate_metrics
+from src.churn.evaluate import evaluate_model, evaluate_model_on_splits
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +151,30 @@ def train_churn_model(
     logger.info(f"Optimal threshold: {optimal_threshold:.4f} (F1: {f1_scores[best_idx]:.4f})")
 
     # ─────────────────────────────────────────────────────────────────
+    # EVALUATE ON ALL SPLITS (train, val, test)
+    # ─────────────────────────────────────────────────────────────────
+
+    # Generate predictions on all splits
+    y_train_proba = lgbm_model.predict_proba(X_train_enc)[:, 1]
+    y_train_pred = (y_train_proba >= optimal_threshold).astype(int)
+
+    y_val_proba = lgbm_model.predict_proba(X_val_enc)[:, 1]
+    y_val_pred = (y_val_proba >= optimal_threshold).astype(int)
+
+    y_test_pred = (y_proba >= optimal_threshold).astype(int)
+
+    # Evaluate on all splits
+    splits_data = {
+        'train': {'y_true': y_train.values, 'y_pred': y_train_pred, 'y_proba': y_train_proba},
+        'validation': {'y_true': y_val.values, 'y_pred': y_val_pred, 'y_proba': y_val_proba},
+        'test': {'y_true': y_test.values, 'y_pred': y_test_pred, 'y_proba': y_proba}
+    }
+
+    evaluation_results = evaluate_model_on_splits(splits_data, threshold=optimal_threshold, cfg=cfg)
+
+    logger.info(f"Evaluation complete on {len(evaluation_results)} splits")
+
+    # ─────────────────────────────────────────────────────────────────
     # SAVE ARTIFACTS
     # ─────────────────────────────────────────────────────────────────
 
@@ -175,6 +201,38 @@ def train_churn_model(
     save_json(threshold_meta, f"{models_dir}threshold_meta.json")
 
     logger.info(f"All artifacts saved to {models_dir}")
+
+    # ─────────────────────────────────────────────────────────────────
+    # SAVE COMPREHENSIVE METRICS (JSON + CSV)
+    # ─────────────────────────────────────────────────────────────────
+
+    try:
+        # Build metrics payload for JSON
+        metrics_payload = build_metrics_payload(evaluation_results, threshold_meta)
+
+        # Validate metrics before saving
+        if validate_metrics(metrics_payload):
+            # Save latest metrics to JSON
+            save_metrics_to_json(metrics_payload, f"{models_dir}metrics_latest.json")
+
+            # Extract flat metrics for CSV
+            metrics_by_split = {}
+            for split_name, eval_result in evaluation_results.items():
+                if 'metrics' in eval_result:
+                    metrics_by_split[split_name] = eval_result['metrics']
+                else:
+                    metrics_by_split[split_name] = eval_result
+
+            # Append to CSV history
+            append_metrics_to_csv(metrics_by_split, threshold_meta, f"{models_dir}metrics_history.csv")
+
+            logger.info(f"Metrics saved successfully (JSON + CSV)")
+        else:
+            logger.warning("Metrics validation failed, skipping save")
+
+    except Exception as e:
+        logger.error(f"Error saving metrics: {e}", exc_info=True)
+        # Don't fail the entire pipeline if metrics saving fails
 
     return lgbm_model, preprocessor, optimal_threshold, threshold_meta
 
