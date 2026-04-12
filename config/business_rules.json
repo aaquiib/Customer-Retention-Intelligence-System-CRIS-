@@ -1,0 +1,75 @@
+{
+  "actions": {
+    "do_nothing": {
+      "label": "Monitor",
+      "description": "Low risk - routine monitoring"
+    },
+    "loyalty_program": {
+      "label": "Loyalty Program",
+      "description": "Offer loyalty rewards, referral bonuses, and exclusive member benefits"
+    },
+    "discount_offer": {
+      "label": "Discount Offer",
+      "description": "Offer service discounts, bundle deals, or promotional pricing"
+    },
+    "retention_call": {
+      "label": "Retention Call",
+      "description": "Direct outreach with personalized retention offer tailored to customer"
+    },
+    "vip_support": {
+      "label": "VIP Support",
+      "description": "Upgrade to premium support with dedicated account manager and priority service"
+    },
+    "early_exit_waiver": {
+      "label": "Early Exit Waiver",
+      "description": "Waive early termination fees to reduce friction if customer still decides to leave"
+    }
+  },
+  "priority_weights": {
+    "churn_probability": 0.40,
+    "segment_risk": 0.30,
+    "customer_value": 0.30
+  },
+  "segment_risk_scores": {
+    "Loyal High-Value": 0.10,
+    "Low Engagement": 0.60,
+    "Stable Mid-Value": 0.30,
+    "At risk High-value": 0.80
+  },
+  "thresholds": {
+    "high_value_tenure_months": 36,
+    "high_value_monthly_charges": 75.0,
+    "medium_value_monthly_charges": 50.0,
+    "low_value_monthly_charges": 30.0,
+    "high_churn_prob": 0.60,
+    "medium_churn_prob": 0.40
+  },
+  "segment_specific_actions": {
+    "Loyal High-Value": {
+      "low_churn": "loyalty_program",
+      "medium_churn": "discount_offer",
+      "high_churn": "vip_support"
+    },
+    "Low Engagement": {
+      "low_churn": "do_nothing",
+      "medium_churn": "retention_call",
+      "high_churn": "discount_offer"
+    },
+    "Stable Mid-Value": {
+      "low_churn": "do_nothing",
+      "medium_churn": "retention_call",
+      "high_churn": "retention_call"
+    },
+    "At risk High-value": {
+      "low_churn": "loyalty_program",
+      "medium_churn": "vip_support",
+      "high_churn": "early_exit_waiver"
+    }
+  },
+  "comments": {
+    "priority_weights": "Weights must sum to 1.0. Adjust to reflect business priorities.",
+    "segment_risk_scores": "0=lowest risk, 1=highest risk. Used to compute priority scores.",
+    "thresholds": "Base thresholds for value classification and churn risk categorization.",
+    "segment_specific_actions": "Optional: segment-specific action overrides based on churn risk level."
+  }
+}

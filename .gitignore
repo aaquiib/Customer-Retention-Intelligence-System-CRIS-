@@ -30,12 +30,17 @@ share/python-wheels/
 *.egg
 MANIFEST
 
-# Python testing
+# Python testing and coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .hypothesis/
+.pytest_cache/
+*.cover
+coverage.xml
+test-results/
 
 # Jupyter Notebook exploration (not part of pipeline)
 notebooks/
@@ -73,6 +78,14 @@ tmp/
 # Logs
 *.log
 logs/
+debug-logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
 
 # OS-specific
 .AppleDouble/
