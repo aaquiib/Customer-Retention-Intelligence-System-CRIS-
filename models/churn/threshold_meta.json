@@ -1,8 +1,8 @@
 {
-    "best_threshold": 0.42671478676134605,
+    "best_threshold": 0.4385122202987758,
     "default_threshold": 0.5,
     "metric_optimized": "f1",
-    "test_roc_auc": 0.8402528685633536,
+    "test_roc_auc": 0.8407465437788018,
     "n_estimators": 650,
     "random_seed": 42
 }

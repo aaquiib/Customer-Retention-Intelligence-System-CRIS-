@@ -81,7 +81,7 @@ def train_churn_model(
     # Split: temp (85%) | test (15%)
     X_temp, X_test, y_temp, y_test = train_test_split(
         X, y,
-        test_size=1 - train_size,
+        test_size=1 - train_size - val_size,
         stratify=y if stratified else None,
         random_state=random_seed
     )
@@ -89,7 +89,7 @@ def train_churn_model(
     # Split temp: train (70%) | val (15%) of total
     X_train, X_val, y_train, y_val = train_test_split(
         X_temp, y_temp,
-        test_size=val_size / (train_size),  # Proportional split
+        test_size=val_size / (train_size + val_size),  # Proportional split
         stratify=y_temp if stratified else None,
         random_state=random_seed
     )
@@ -142,8 +142,9 @@ def train_churn_model(
     # Find optimal threshold via F1-score
     precisions, recalls, thresholds = precision_recall_curve(y_test, y_proba)
     f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-8)
+    f1_scores = f1_scores[:-1]
     best_idx = np.argmax(f1_scores)
-    optimal_threshold = thresholds[best_idx] if best_idx < len(thresholds) else 0.5
+    optimal_threshold = float(thresholds[best_idx])
 
     logger.info(f"Optimal threshold: {optimal_threshold:.4f} (F1: {f1_scores[best_idx]:.4f})")
 
@@ -187,7 +188,9 @@ if __name__ == "__main__":
     setup_logging(cfg['logging'])
 
     # Load data with segment labels
-    df_with_segments = load_csv(cfg['data']['processed_csv_path'])
+    df_with_segments = load_csv(
+        cfg['data']['processed_csv_path'].replace('processed_df', 'df_with_segment_labels')
+    )
 
     # Train model
     lgbm_model, preprocessor, opt_threshold, metadata = train_churn_model(df_with_segments, cfg)

@@ -34,6 +34,7 @@ def run_full_pipeline() -> None:
     logger.info("=" * 80)
 
     # Phase 1: Data Loading & Preprocessing
+
     logger.info("\n[PHASE 1] DATA PREPROCESSING")
     logger.info("-" * 80)
     df_raw = load_raw_data(cfg['data']['raw_csv_path'])
@@ -42,6 +43,7 @@ def run_full_pipeline() -> None:
     logger.info(f"✓ Preprocessed data saved")
 
     # Phase 2: Feature Engineering
+
     logger.info("\n[PHASE 2] FEATURE ENGINEERING")
     logger.info("-" * 80)
     df_engineered = engineer_features(df_preprocessed, cfg)
@@ -63,6 +65,7 @@ def run_full_pipeline() -> None:
     logger.info(f"✓ Engineered features saved | Shape: {df_segmentation.shape}")
 
     # Phase 3: Segmentation Training
+
     logger.info("\n[PHASE 3] SEGMENTATION MODEL TRAINING")
     logger.info("-" * 80)
     kproto, scaler, cat_idx, metadata = train_segmentation_model(df_segmentation, cfg)
@@ -88,28 +91,29 @@ def run_full_pipeline() -> None:
     for label, count in df_segmentation_with_segments['segment_label'].value_counts().items():
         logger.info(f"  {label}: {count} customers")
 
-    # # Phase 5: Churn Model Training
-    # logger.info("\n[PHASE 5] CHURN MODEL TRAINING")
-    # logger.info("-" * 80)
-    # df_with_segment_labels = load_csv(
-    #     cfg['data']['processed_csv_path'].replace('processed_df', 'df_with_segment_labels')
-    # )
-    # lgbm_model, preprocessor, opt_threshold, threshold_meta = train_churn_model(
-    #     df_with_segment_labels,
-    #     cfg
-    # )
-    # logger.info(f"✓ Churn model trained and saved")
-    # logger.info(f"  Test ROC-AUC: {threshold_meta['test_roc_auc']:.4f}")
-    # logger.info(f"  Optimal threshold: {opt_threshold:.4f}")
+    # Phase 5: Churn Model Training
+    
+    logger.info("\n[PHASE 5] CHURN MODEL TRAINING")
+    logger.info("-" * 80)
+    df_with_segment_labels = load_csv(
+        cfg['data']['processed_csv_path'].replace('processed_df', 'df_with_segment_labels')
+    )
+    lgbm_model, preprocessor, opt_threshold, threshold_meta = train_churn_model(
+        df_with_segment_labels,
+        cfg
+    )
+    logger.info(f"✓ Churn model trained and saved")
+    logger.info(f"  Test ROC-AUC: {threshold_meta['test_roc_auc']:.4f}")
+    logger.info(f"  Optimal threshold: {opt_threshold:.4f}")
 
-    # logger.info("\n" + "=" * 80)
-    # logger.info("PIPELINE COMPLETE")
-    # logger.info("=" * 80)
-    # logger.info(f"\nArtifacts saved to:")
-    # logger.info(f"  - Data: {cfg['data']['processed_csv_path']}")
-    # logger.info(f"  - Segmentation model: {cfg['models']['segmentation_dir']}")
-    # logger.info(f"  - Churn model: {cfg['models']['churn_dir']}")
-    # logger.info("=" * 80 + "\n")
+    logger.info("\n" + "=" * 80)
+    logger.info("PIPELINE COMPLETE")
+    logger.info("=" * 80)
+    logger.info(f"\nArtifacts saved to:")
+    logger.info(f"  - Data: {cfg['data']['processed_csv_path']}")
+    logger.info(f"  - Segmentation model: {cfg['models']['segmentation_dir']}")
+    logger.info(f"  - Churn model: {cfg['models']['churn_dir']}")
+    logger.info("=" * 80 + "\n")
 
 
 if __name__ == "__main__":

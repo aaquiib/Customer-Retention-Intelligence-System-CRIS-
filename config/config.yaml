@@ -123,35 +123,30 @@ churn_modeling:
   random_seed: 42
   stratified: true
 
-  # Numeric and categorical columns (for preprocessing)
+  # Numeric and categorical columns (raw preprocessed features + segment)
   numeric_columns:
     - 'tenure'
     - 'MonthlyCharges'
     - 'TotalCharges'
-    - 'avg_monthly_spend'
-    - 'charge_gap'
-    - 'streaming_count'
-    - 'security_count'
   
   categorical_columns:
     - 'gender'
     - 'SeniorCitizen'
     - 'Partner'
     - 'Dependents'
-    - 'tenure_band'
-    - 'is_high_value'
     - 'PhoneService'
     - 'MultipleLines'
     - 'InternetService'
+    - 'OnlineSecurity'
+    - 'OnlineBackup'
+    - 'DeviceProtection'
+    - 'TechSupport'
+    - 'StreamingTV'
+    - 'StreamingMovies'
     - 'Contract'
     - 'PaperlessBilling'
     - 'PaymentMethod'
-    - 'payment_electronic_check'
-    - 'month_to_month_paperless'
-    - 'no_support_services'
-    - 'is_isolated'
-    - 'fiber_no_security'
-    - 'no_internet_services'
+    - 'segment'
 
   # LightGBM hyperparameters (from hyperparameter tuning)
   lgbm_hyperparams:
