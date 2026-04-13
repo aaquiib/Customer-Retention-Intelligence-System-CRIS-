@@ -1,5 +1,6 @@
 # Python virtual environments
 churn_venv/
+churn_env/
 venv/
 env/
 .venv/
@@ -67,7 +68,6 @@ dvc.lock
 
 # DVC-managed data and model outputs
 data/processed/
-models/
 
 # Temporary and cache directories
 tmp/

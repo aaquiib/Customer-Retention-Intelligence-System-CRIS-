@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from inference.pipeline import InferencePipeline
 from inference.business_rules import RetentionActionDecider
+from inference.shap_explainer import SHAPExplainer
 from src.config import get_config
 from src.utils import setup_logging
 
@@ -32,6 +33,7 @@ class ModelCache:
         """Initialize model cache."""
         self.pipeline: Optional[InferencePipeline] = None
         self.action_decider: Optional[RetentionActionDecider] = None
+        self.shap_explainer: Optional[SHAPExplainer] = None
         self.config = None
         self.is_loaded = False
     
@@ -53,6 +55,21 @@ class ModelCache:
             self.config = get_config()
             self.pipeline = InferencePipeline(self.config)
             self.action_decider = RetentionActionDecider("config/business_rules.json")
+            
+            # Initialize SHAP explainer (non-blocking, warnings logged if fails)
+            try:
+                logger.info("Initializing SHAP explainer...")
+                self.shap_explainer = SHAPExplainer(
+                    pipeline=self.pipeline,
+                    background_sample_path=None,
+                    explainer_type="tree",
+                    n_background_samples=200
+                )
+                logger.info("✓ SHAP explainer initialized successfully")
+            except Exception as e:
+                logger.warning(f"Could not initialize SHAP explainer (optional): {e}")
+                self.shap_explainer = None
+            
             self.is_loaded = True
             logger.info("✓ All models loaded successfully")
         except Exception as e:
@@ -63,6 +80,7 @@ class ModelCache:
         """Unload models on shutdown."""
         self.pipeline = None
         self.action_decider = None
+        self.shap_explainer = None
         self.is_loaded = False
         logger.info("Models unloaded")
 

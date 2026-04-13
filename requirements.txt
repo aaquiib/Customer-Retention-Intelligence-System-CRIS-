@@ -1,84 +1,54 @@
-# ══════════════════════════════════════════════════════════════════════════════
-# CHURN-SEGMENTATION MLOPS: CONSOLIDATED DEPENDENCIES
-# ══════════════════════════════════════════════════════════════════════════════
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CORE DATA PROCESSING
-# ─────────────────────────────────────────────────────────────────────────────
+# Core Data Processing
 pandas==2.1.4
 numpy==1.26.4
 scipy>=1.10.0
 
-# ─────────────────────────────────────────────────────────────────────────────
-# MACHINE LEARNING & MODELS
-# ─────────────────────────────────────────────────────────────────────────────
+# Machine Learning & Models
 scikit-learn==1.3.2
 lightgbm==4.0.0
+shap>=0.42.0
 catboost>=1.2.0
-xgboost>=2.0.0
 optuna>=3.0.0
 kmodes>=0.12.0
 
-# ─────────────────────────────────────────────────────────────────────────────
-# REST API & INFERENCE SERVER
-# ─────────────────────────────────────────────────────────────────────────────
+# REST API & Inference Server
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
 pydantic-settings==2.1.0
 python-multipart>=0.0.6
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DASHBOARD & VISUALIZATION
-# ─────────────────────────────────────────────────────────────────────────────
+# Dashboard & Visualization
 streamlit==1.37.0
 streamlit-option-menu==0.4.0
 plotly==5.18.0
 matplotlib==3.8.2
 seaborn>=0.12.0
 
-# ─────────────────────────────────────────────────────────────────────────────
-# HTTP CLIENTS
-# ─────────────────────────────────────────────────────────────────────────────
+# HTTP Clients
 requests==2.31.0
 httpx==0.25.1
 
-# ─────────────────────────────────────────────────────────────────────────────
-# CONFIGURATION & UTILITIES
-# ─────────────────────────────────────────────────────────────────────────────
+# Configuration & Utilities
 python-dotenv==1.0.0
 PyYAML==6.0.1
 joblib==1.3.2
 
-# ─────────────────────────────────────────────────────────────────────────────
-# JUPYTER NOTEBOOK ENVIRONMENT (optional - for development/exploration)
-# ─────────────────────────────────────────────────────────────────────────────
+# Jupyter Notebook Environment
 jupyter>=1.0.0
 jupyterlab>=4.0.0
 ipykernel>=6.25.0
 ipython>=8.15.0
 ipywidgets>=8.1.0
 
-# ─────────────────────────────────────────────────────────────────────────────
-# TESTING & CODE QUALITY (optional - for development)
-# ─────────────────────────────────────────────────────────────────────────────
+# Testing & Code Quality
 pytest>=7.4.0
 pytest-cov>=4.1.0
 black>=23.0.0
 flake8>=6.1.0
 mypy>=1.5.0
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DATA VERSION CONTROL
-# ─────────────────────────────────────────────────────────────────────────────
+# Data Version Control
 dvc>=3.0,<4.0
-dvc-local>=3.0.0
-
-# ─────────────────────────────────────────────────────────────────────────────
-# MODEL EXPLAINABILITY (OPTIONAL)
-# ─────────────────────────────────────────────────────────────────────────────
-# NOTE: SHAP requires Microsoft C++ Build Tools on Windows
-# Install manually if needed: pip install shap
-# Currently excluded due to Windows build tool requirement
-# shap>=0.42.0
+# dvc-local>=3.0.0
 
