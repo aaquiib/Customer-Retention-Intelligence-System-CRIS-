@@ -178,17 +178,34 @@ class SHAPExplainer:
     def _get_feature_names(self) -> List[str]:
         """Get feature names from preprocessor."""
         try:
-            # Try to get feature names from ColumnTransformer
+            # Try to get feature names from ColumnTransformer's output method
             preprocessor = self.pipeline.churn_preprocessor
             
-            # Get feature names from all transformers
+            # Try get_feature_names_out() first (sklearn 1.0+)
+            if hasattr(preprocessor, 'get_feature_names_out'):
+                try:
+                    feature_names = list(preprocessor.get_feature_names_out())
+                    if feature_names:
+                        logger.info(f"Got {len(feature_names)} feature names from preprocessor.get_feature_names_out()")
+                        return feature_names
+                except Exception as e:
+                    logger.warning(f"get_feature_names_out() failed: {e}")
+            
+            # Fallback: Get feature names from transformers input columns
             feature_names = []
             for name, transformer, columns in preprocessor.transformers_:
                 feature_names.extend(columns)
             
-            return feature_names
+            if feature_names:
+                logger.info(f"Got {len(feature_names)} feature names from transformers")
+                return feature_names
+            
+            # Last resort: use generic names
+            logger.warning("Could not extract feature names from preprocessor")
+            return [f"feature_{i}" for i in range(self.background_X.shape[1])]
+        
         except Exception as e:
-            logger.warning(f"Could not extract feature names: {e}. Using generic names.")
+            logger.warning(f"Error extracting feature names: {e}. Using generic names.")
             return [f"feature_{i}" for i in range(self.background_X.shape[1])]
 
     def get_global_importance(

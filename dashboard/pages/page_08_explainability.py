@@ -130,14 +130,15 @@ def render():
             if success:
                 top_features = shap_data.get("top_features", [])
                 base_value = shap_data.get("base_value", 0)
-                prediction_value = shap_data.get("prediction_value", 0)
+                prediction_obj = shap_data.get("prediction", {})
+                prediction_value = prediction_obj.get("churn_probability", 0) if isinstance(prediction_obj, dict) else 0
                 
                 if top_features:
                     st.markdown("**SHAP Force Plot (Waterfall Chart)**")
                     
                     # Build waterfall
                     feature_names = [f["feature_name"] for f in top_features]
-                    shap_values = [f["shap_value"] for f in top_features]
+                    shap_values = [f["importance"] for f in top_features]
                     
                     fig = create_waterfall_chart(
                         feature_names,
@@ -153,8 +154,7 @@ def render():
                     contributions_df = pd.DataFrame({
                         "Feature": feature_names,
                         "SHAP Value": [f"{v:.6f}" for v in shap_values],
-                        "Feature Value": [f.get("feature_value", "N/A") for f in top_features],
-                        "Direction": [f.get("impact_direction", "N/A") for f in top_features],
+                        "Direction": [f.get("sign", "N/A") for f in top_features],
                         "Impact": ["↑ Increases Churn" if v > 0 else "↓ Decreases Churn" for v in shap_values]
                     })
                     
