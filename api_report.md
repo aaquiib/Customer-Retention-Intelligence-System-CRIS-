@@ -293,30 +293,26 @@ async function predictChurn(customerData: CustomerInput) {
 ### 2. Batch Prediction
 **Endpoint:** `POST /api/predict-batch`
 
-**Purpose:** Predict for multiple customers (batch processing for bulk scoring)
+**Purpose:** Bulk score multiple customers via CSV file upload (up to 50,000 customers)
 
-#### Request Schema
-```json
-{
-  "customers": [
-    {
-      "gender": "Male",
-      "SeniorCitizen": 0,
-      ...
-    },
-    {
-      "gender": "Female",
-      "SeniorCitizen": 1,
-      ...
-    }
-  ],
-  "return_features": false
-}
+#### Request Format
+**Content-Type:** `multipart/form-data`  
+**Body:** CSV file upload
+
+The CSV must contain exactly 19 columns with customer data. Column order doesn't matter, but all 19 columns required:
+
+```csv
+gender,SeniorCitizen,Partner,Dependents,tenure,MonthlyCharges,TotalCharges,PhoneService,MultipleLines,InternetService,OnlineSecurity,OnlineBackup,DeviceProtection,TechSupport,StreamingTV,StreamingMovies,Contract,PaperlessBilling,PaymentMethod
+Male,0,Yes,No,24,65.50,1570.70,Yes,No,Fiber optic,No,No,No,No,No,No,Month-to-month,Yes,Electronic check
+Female,1,No,Yes,12,45.25,543.00,No,No,DSL,Yes,Yes,No,Yes,Yes,No,One year,No,Credit card (automatic)
 ```
 
 #### Parameters
-- `customers` (List[CustomerInput], required): Up to 1,000 customers
-- `return_features` (Boolean, optional): Include engineered features
+- `file` (File, required): CSV file with 19-column customer data
+  - Supports up to **50,000 rows** per request
+  - Column names are **case-insensitive**
+  - All 19 required columns must be present
+  - Handles missing values gracefully
 
 #### Response Schema
 ```json
@@ -324,33 +320,41 @@ async function predictChurn(customerData: CustomerInput) {
   "success": true,
   "results": [
     {
-      "success": true,
-      "prediction": { ... },
-      "error": null
-    },
-    {
-      "success": false,
-      "prediction": null,
-      "error": "Invalid input data"
+      "customer_id": "Row 0",
+      "prediction": {
+        "churn_probability": 0.8432,
+        "segment": 1,
+        "segment_confidence": 0.95,
+        "top_features": [
+          {
+            "name": "Contract",
+            "impact": -0.45,
+            "base_value": 0.32
+          }
+        ],
+        "recommended_action": "Retention Call"
+      },
+      "error": null,
+      "success": true
     }
   ],
-  "status": {
+  "summary": {
     "total_rows": 2,
-    "rows_processed": 1,
-    "rows_failed": 1,
+    "rows_processed": 2,
+    "rows_failed": 0,
     "churn_rate": 0.50,
     "avg_churn_probability": 0.8432,
     "avg_segment_confidence": 0.95,
     "segment_distribution": {
       "0": 0,
       "1": 1,
-      "2": 0,
+      "2": 1,
       "3": 0
     },
     "action_distribution": {
       "Retention Call": 1,
       "Loyalty Program": 0,
-      "Service Upgrade": 0,
+      "Service Upgrade": 1,
       "Billing Review": 0
     }
   },
@@ -360,12 +364,22 @@ async function predictChurn(customerData: CustomerInput) {
 
 #### HTTP Status Codes
 - `200 OK` - Batch processing completed (check individual results)
-- `422 Unprocessable Entity` - Invalid request format
+- `400 Bad Request` - CSV format issues or missing columns
+- `413 Payload Too Large` - File exceeds maximum size
+- `422 Unprocessable Entity` - Invalid data format or values
 - `503 Service Unavailable` - Models not loaded
 
+#### Key Features
+- Individual row predictions with SHAP values
+- Batch summary statistics (churn rate, segment distribution)
+- Error handling per row (partial failures don't stop batch)
+- Automatic column normalization (case-insensitive)
+- Processing time: ~50-100ms for 1,000 customers, ~500-1000ms for 10,000 customers
+
 #### Limits
-- Maximum 1,000 customers per request
-- Processing time: ~200ms for 100 customers
+- **Maximum 50,000 rows** per batch request
+- Column count must be exactly 19
+- File size limit typically 100MB+ (depends on server config)
 
 ---
 
@@ -1112,13 +1126,13 @@ curl "http://localhost:8000/api/what-if/policy-changes"
 
 ### Throughput
 - Single predictions: ~10 req/sec
-- Batch predictions: Up to 1,000 customers per request
+- Batch predictions: Up to 50,000 customers per request
 - Global importance: Cached (computed once at startup)
 
 ### Limits
 | Limit | Value | Notes |
 |-------|-------|-------|
-| Max customers per batch | 1,000 | Split larger batches |
+| Max customers per batch | 50,000 | CSV file upload with 19 columns |
 | Max what-if simulations | 100 | Split larger batches |
 | Max features to return | 33 | Total engineered features |
 | Request timeout | 30s | Uvicorn default |
@@ -1127,7 +1141,8 @@ curl "http://localhost:8000/api/what-if/policy-changes"
 ### Scaling Recommendations
 - **Single Server:** ~100 concurrent requests
 - **Production Deployment:** Use multiple workers with load balancer
-- **Database:** Cache predictions for batch results
+- **Large Batches:** Batch processing supports up to 50,000 customers in a single request
+- **Database:** Cache predictions for batch results if needed
 - **Monitoring:** Track response times and error rates
 
 ### Resource Requirements
