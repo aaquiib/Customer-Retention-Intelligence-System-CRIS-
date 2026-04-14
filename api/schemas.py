@@ -123,15 +123,15 @@ class PredictionOutput(BaseModel):
     is_churner: bool = Field(..., description="True if churn_probability exceeds threshold")
     threshold: float = Field(..., description="Decision threshold used")
     
-    # Feature Importance (SHAP)
-    top_features: List[SHAPFeature] = Field(
-        ..., 
+    # Feature Importance (SHAP) - Optional for instance explanation (provided via InstanceExplanation)
+    top_features: Optional[List[SHAPFeature]] = Field(
+        default=None, 
         description="Top 5 features driving this prediction (SHAP values)"
     )
     
-    # Business Action
-    recommended_action: RecommendedAction = Field(
-        ..., 
+    # Business Action - Optional for instance explanation
+    recommended_action: Optional[RecommendedAction] = Field(
+        default=None, 
         description="Recommended retention action from business rules"
     )
     

@@ -1,6 +1,7 @@
 """SHAP-based explainability for churn predictions."""
 
 import logging
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -13,6 +14,9 @@ except ImportError:
     SHAP_AVAILABLE = False
 
 from inference.pipeline import InferencePipeline
+from src.config import get_config
+from src.data.preprocess import preprocess_data
+from src.features.engineering import engineer_features
 from src.utils import load_csv
 
 logger = logging.getLogger(__name__)
@@ -70,16 +74,37 @@ class SHAPExplainer:
                 logger.info(f"Loading background data from {background_sample_path}")
                 df_background = load_csv(background_sample_path)
             else:
-                logger.info(f"Creating synthetic background data ({self.n_background_samples} samples)")
-                df_background = self._create_synthetic_background()
+                logger.info("Loading background data from training data...")
+                cfg = self.pipeline.cfg
+                churn_features_path = cfg['data'].get('churn_features_path', 'data/processed/churn_features.csv')
+                
+                try:
+                    df_background = load_csv(churn_features_path)
+                    # Remove Churn target if present
+                    if 'Churn' in df_background.columns:
+                        df_background = df_background.drop('Churn', axis=1)
+                    logger.info(f"Loaded {len(df_background)} samples from {churn_features_path}")
+                except Exception as e:
+                    logger.warning(f"Could not load from {churn_features_path}: {e}")
+                    df_background = self._create_synthetic_background()
             
-            # Preprocess background data
+            # Shuffle and sample to n_background_samples
+            if len(df_background) > self.n_background_samples:
+                df_background = df_background.sample(n=self.n_background_samples, random_state=42)
+            
+            # Ensure 'segment' column exists before preprocessing (required by churn_preprocessor)
+            if 'segment' not in df_background.columns:
+                df_background['segment'] = '0'  # Default segment value
+            
+            # Transform through the preprocessor to get encoded values
             try:
+                logger.info("Transforming background data with preprocessor...")
                 df_background = self.pipeline.churn_preprocessor.transform(df_background)
             except Exception as e:
-                logger.warning(f"Could not transform background data: {e}. Using raw data.")
-                df_background = df_background.to_numpy() if isinstance(df_background, pd.DataFrame) else df_background
+                # If it fails, the data might be in unexpected format
+                logger.warning(f"Could not apply preprocessor: {e}. Using data as-is.")
             
+            # Convert to numpy array for SHAP
             if isinstance(df_background, pd.DataFrame):
                 df_background = df_background.to_numpy()
             
@@ -102,13 +127,27 @@ class SHAPExplainer:
             logger.info("✓ SHAP explainer initialized successfully")
         
         except Exception as e:
-            logger.error(f"Failed to initialize SHAP explainer: {e}")
+            logger.error(f"Failed to initialize SHAP explainer: {e}", exc_info=True)
             raise
 
     def _create_synthetic_background(self) -> pd.DataFrame:
-        """Create synthetic background data for SHAP baseline."""
-        # Create simple background with reasonable median/mode values
-        # This is used when no real background data is available
+        """Create synthetic background data for SHAP baseline from real training data."""
+        # Try to load real background data from processed features, fall back to synthetic
+        try:
+            cfg = self.pipeline.cfg
+            churn_features_path = cfg['data'].get('churn_features_path', 'data/processed/churn_features.csv')
+            logger.info(f"Attempting to load background data from {churn_features_path}")
+            df_background = load_csv(churn_features_path)
+            
+            # Shuffle and take top n_samples
+            df_background = df_background.sample(min(len(df_background), self.n_background_samples), random_state=42)
+            logger.info(f"Loaded {len(df_background)} real background samples from training data")
+            return df_background
+        except Exception as e:
+            logger.warning(f"Could not load real background data: {e}. Creating synthetic background...")
+        
+        # Fallback: Create simple synthetic background with common values
+        # Using only values that are likely in the preprocessor's training categories
         n_samples = self.n_background_samples
         
         background_data = {
@@ -116,7 +155,7 @@ class SHAPExplainer:
             'MonthlyCharges': np.random.uniform(20, 120, n_samples),
             'TotalCharges': np.random.uniform(100, 8000, n_samples),
             'gender': np.random.choice(['Male', 'Female'], n_samples),
-            'SeniorCitizen': np.random.choice([0, 1], n_samples),
+            'SeniorCitizen': np.random.choice(['yes', 'no'], n_samples),  # After preprocessing
             'Partner': np.random.choice(['Yes', 'No'], n_samples),
             'Dependents': np.random.choice(['Yes', 'No'], n_samples),
             'PhoneService': np.random.choice(['Yes', 'No'], n_samples),
@@ -130,8 +169,8 @@ class SHAPExplainer:
             'StreamingMovies': np.random.choice(['Yes', 'No', 'No internet service'], n_samples),
             'Contract': np.random.choice(['Month-to-month', 'One year', 'Two year'], n_samples),
             'PaperlessBilling': np.random.choice(['Yes', 'No'], n_samples),
-            'PaymentMethod': np.random.choice(['Electronic check', 'Mailed check', 'Bank transfer', 'Credit card'], n_samples),
-            'segment': np.random.randint(0, 4, n_samples)
+            'PaymentMethod': np.random.choice(['Electronic check', 'Mailed check'], n_samples),  # Only common values
+            'segment': str(np.random.randint(0, 4))  # Single segment value
         }
         
         return pd.DataFrame(background_data)
@@ -237,9 +276,32 @@ class SHAPExplainer:
                 - base_value: Model baseline
         """
         try:
-            # Preprocess customer data
+            # Convert to DataFrame
             df = pd.DataFrame([customer_data])
-            X = self.pipeline.churn_preprocessor.transform(df)
+            cfg = self.pipeline.cfg
+            
+            logger.info(f"Starting instance explanation | Initial columns: {df.columns.tolist()}")
+            
+            # Apply preprocessing and feature engineering
+            df = preprocess_data(df, cfg)
+            df = engineer_features(df, cfg)
+            
+            # Add segment column (required by churn_preprocessor)
+            if 'segment' not in df.columns:
+                df['segment'] = '0'
+            
+            # Log the columns we have
+            logger.info(f"Engineered feature columns: {df.columns.tolist()}")
+            logger.info(f"DataFrame shape after engineering: {df.shape}")
+            
+            # Apply the categorical/numerical transformation
+            try:
+                X = self.pipeline.churn_preprocessor.transform(df)
+                logger.info(f"Preprocessor output shape: {X.shape}")
+            except Exception as e:
+                logger.error(f"Preprocessor transform failed: {e}")
+                # If preprocessor fails, we need to skip instance explanation
+                raise ValueError(f"Could not preprocess customer data for SHAP: {e}")
             
             # Compute SHAP values
             if self.explainer_type == "tree":

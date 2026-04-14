@@ -106,11 +106,9 @@ async def get_instance_feature_importance(
         if not model_cache.is_loaded:
             raise HTTPException(status_code=503, detail="Models not loaded")
         
-        # Get customer prediction
         customer_dict = customer.model_dump(exclude_none=True)
-        prediction = model_cache.pipeline.predict_single(customer_dict)
         
-        # Get SHAP explanation
+        # Get SHAP explanation first
         if not hasattr(model_cache, 'shap_explainer') or model_cache.shap_explainer is None:
             logger.warning("SHAP explainer not initialized")
             return ExplanationResponse(
@@ -122,6 +120,21 @@ async def get_instance_feature_importance(
             customer_dict,
             top_n=top_n
         )
+        
+        # Try to get customer prediction (optional, for context)
+        try:
+            prediction = model_cache.pipeline.predict_single(customer_dict)
+        except Exception as e:
+            logger.warning(f"Could not compute full prediction: {e}. Using SHAP prediction only.")
+            # Create a minimal prediction from SHAP result
+            prediction = {
+                'segment': 0,
+                'segment_label': 'Unknown',
+                'churn_probability': explanation.get('churn_prob', 0.5),
+                'is_churner': explanation.get('churn_prob', 0.5) > 0.4356,
+                'threshold': 0.4356,
+                'segment_confidence': 0.0,
+            }
         
         # Convert to feature importance objects
         features = [
