@@ -301,12 +301,13 @@ def render():
             if success:
                 top_features = shap_data.get("top_features", [])
                 base_value = shap_data.get("base_value", 0)
-                prediction_value = shap_data.get("prediction_value", 0)
+                prediction_obj = shap_data.get("prediction", {})
+                prediction_value = prediction_obj.get("churn_probability", 0) if isinstance(prediction_obj, dict) else 0
                 
                 if top_features:
                     # Build data for waterfall
                     feature_names = [f["feature_name"] for f in top_features]
-                    shap_values = [f["shap_value"] for f in top_features]
+                    shap_values = [f["importance"] for f in top_features]
                     
                     # Waterfall chart
                     fig = create_waterfall_chart(
