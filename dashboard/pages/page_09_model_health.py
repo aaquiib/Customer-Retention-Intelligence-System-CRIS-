@@ -116,7 +116,8 @@ def render():
             model_details = [
                 ("Model Name", churn_model.get("model_name", "N/A")),
                 ("Model Framework", churn_model.get("framework", "N/A")),
-                ("Input Features", churn_model.get("num_features", "N/A")),
+                ("Input Features", churn_model.get("input_features", "N/A")),
+                ("Processed Features", churn_model.get("num_features", "N/A")),
                 ("Decision Threshold", f"{churn_model.get('decision_threshold', 0.4356):.4f}"),
                 ("Training Data Size", churn_model.get("training_data_size", "N/A")),
                 ("Feature Set", churn_model.get("feature_set_version", "N/A")),
