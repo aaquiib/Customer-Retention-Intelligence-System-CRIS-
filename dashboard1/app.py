@@ -9,16 +9,21 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from dotenv import load_dotenv
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
 import streamlit as st
 from streamlit_option_menu import option_menu
+
+# Load environment variables from root directory
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # ─────────────────────────────────────────────────────────────────
 # PAGE CONFIG
@@ -30,7 +35,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-API_BASE = st.session_state.get("api_base", "http://localhost:8000")
+API_BASE = st.session_state.get("api_base", os.getenv("API_BASE_URL", "http://localhost:8000"))
 
 # ─────────────────────────────────────────────────────────────────
 # THEME — sophisticated, dark, muted
@@ -262,7 +267,7 @@ class CRISClient:
 # ─────────────────────────────────────────────────────────────────
 def init_state():
     defaults = {
-        "api_base": "http://localhost:8000",
+        "api_base": os.getenv("API_BASE_URL", "http://localhost:8000"),
         "last_prediction": None,
         "last_batch": None,
         "last_whatif": None,

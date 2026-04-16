@@ -5,6 +5,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -14,6 +15,9 @@ from inference.business_rules import RetentionActionDecider
 from inference.shap_explainer import SHAPExplainer
 from src.config import get_config
 from src.utils import setup_logging
+
+# Load environment variables from root directory
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 # Configure logging
 setup_logging(get_config())
@@ -117,12 +121,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan
     )
     
-    # Configure CORS for dashboard access
+    # Configure CORS for frontend access (supports both local and production URLs)
+    # For Render: set FRONTEND_URL via environment variables
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:8501")
+    # Support multiple URLs separated by comma (e.g., "http://localhost:8501,https://myapp.onrender.com")
+    frontend_urls = [url.strip() for url in frontend_url.split(",") if url.strip()]
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Adjust for production
+        allow_origins=frontend_urls,
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],
     )
     
@@ -192,7 +201,8 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
     
-    port = int(os.getenv("API_PORT", 8000))
+    # Render uses PORT env var, fallback to API_PORT for local dev
+    port = int(os.getenv("PORT") or os.getenv("API_PORT", 8000))
     log_level = os.getenv("LOG_LEVEL", "info").lower()
     
     uvicorn.run(

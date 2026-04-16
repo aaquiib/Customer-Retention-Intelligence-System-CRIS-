@@ -1,7 +1,13 @@
 """Configuration and constants for the dashboard."""
 
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from root directory
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+
 # API Configuration
-API_BASE_URL = "http://localhost:8000/api"
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000") + "/api"
 API_TIMEOUT = 10  # seconds
 API_RETRIES = 3
 
