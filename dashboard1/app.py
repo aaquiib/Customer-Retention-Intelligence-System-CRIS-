@@ -800,6 +800,8 @@ def page_batch():
             st.download_button("Download CSV template", data=tpl["template"],
                                file_name="cris_template.csv", mime="text/csv",
                                use_container_width=True)
+        st.link_button("Download sample", url="https://drive.google.com/uc?export=download&id=1ybQ9HWXLKcPXxpdXLKVJTUMXt9txPlnt",
+                      use_container_width=True)
 
     col_run, _ = st.columns([1, 4])
     if up and col_run.button("Run batch scoring", type="primary", use_container_width=True):
