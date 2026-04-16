@@ -32,6 +32,19 @@ def render():
         batch_summary = aggregate_batch_summary(st.session_state.batch_predictions)
         batch_df = prepare_batch_result_df(st.session_state.batch_predictions)
         
+        # Extract priority scores
+        priority_scores = []
+        for pred in st.session_state.batch_predictions:
+            action_info = pred.get("recommended_action", {})
+            if isinstance(action_info, dict):
+                priority_score = action_info.get("priority_score", 0.5)
+            else:
+                priority_score = 0.5
+            priority_scores.append(priority_score)
+        
+        batch_df["priority_score"] = priority_scores
+        batch_df["priority_percent"] = (batch_df["priority_score"] * 100).round(0).astype(int)
+        
         col1, col2, col3, col4, col5, col6 = st.columns(6)
         
         with col1:
@@ -115,8 +128,59 @@ def render():
     st.divider()
     
     # ─────────────────────────────────────────────────────────────
-    # SEGMENT INTELLIGENCE (Middle Section)
+    # HIGHEST PRIORITY CUSTOMER
     # ─────────────────────────────────────────────────────────────
+    
+    if st.session_state.batch_predictions and len(batch_df) > 0 and "priority_score" in batch_df.columns:
+        highest_priority_idx = batch_df["priority_score"].idxmax()
+        highest_priority = batch_df.loc[highest_priority_idx]
+        
+        st.subheader("🎯 Highest Priority Customer")
+        
+        priority_col1, priority_col2, priority_col3, priority_col4 = st.columns(4)
+        
+        with priority_col1:
+            priority_percent = int(highest_priority["priority_percent"])
+            if priority_percent >= 67:
+                color = "#e74c3c"  # Red
+                level = "🔴 High"
+            elif priority_percent >= 34:
+                color = "#f39c12"  # Orange
+                level = "🟡 Medium"
+            else:
+                color = "#2ecc71"  # Green
+                level = "🟢 Low"
+            
+            st.markdown(f"""
+            <div style="background-color: {color}; padding: 20px; border-radius: 8px; text-align: center;">
+                <p style="color: white; font-size: 12px; margin: 0;">PRIORITY LEVEL</p>
+                <p style="color: white; font-size: 24px; font-weight: bold; margin: 10px 0;">{priority_percent}%</p>
+                <p style="color: white; font-size: 13px; margin: 0;">{level}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with priority_col2:
+            st.metric(
+                "Customer ID",
+                int(highest_priority.get("customerID", 0))
+            )
+        
+        with priority_col3:
+            st.metric(
+                "Segment",
+                highest_priority.get("segment_label", "Unknown"),
+                delta=f"Churn: {highest_priority.get('churn_probability', 0):.2%}"
+            )
+        
+        with priority_col4:
+            monthly = highest_priority.get("MonthlyCharges", 0)
+            st.metric(
+                "Monthly Value",
+                f"${monthly:,.0f}",
+                delta=f"Tenure: {int(highest_priority.get('tenure', 0))} mo"
+            )
+        
+        st.divider()
     
     st.subheader("Segment Intelligence")
     

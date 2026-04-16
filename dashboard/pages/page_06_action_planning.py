@@ -20,12 +20,39 @@ def render():
     batch_df = prepare_batch_result_df(st.session_state.batch_predictions)
     
     # ─────────────────────────────────────────────────────────────
+    # EXTRACT PRIORITY SCORES
+    # ─────────────────────────────────────────────────────────────
+    
+    priority_scores = []
+    for pred in st.session_state.batch_predictions:
+        action_info = pred.get("recommended_action", {})
+        if isinstance(action_info, dict):
+            priority_score = action_info.get("priority_score", 0.5)
+        else:
+            priority_score = 0.5
+        priority_scores.append(priority_score)
+    
+    batch_df["priority_score"] = priority_scores
+    batch_df["priority_percent"] = (batch_df["priority_score"] * 100).round(0).astype(int)
+    
+    # Add priority level (High/Medium/Low)
+    def get_priority_level(score):
+        if score >= 0.67:
+            return "High"
+        elif score >= 0.34:
+            return "Medium"
+        else:
+            return "Low"
+    
+    batch_df["priority_level"] = batch_df["priority_score"].apply(get_priority_level)
+    
+    # ─────────────────────────────────────────────────────────────
     # FILTERS
     # ─────────────────────────────────────────────────────────────
     
     st.subheader("Filters")
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         selected_segments = st.multiselect(
@@ -62,6 +89,14 @@ def render():
             key="action_contract_filter"
         )
     
+    with col5:
+        selected_priority = st.multiselect(
+            "Priority Level",
+            options=["High", "Medium", "Low"],
+            default=["High", "Medium", "Low"],
+            key="action_priority_filter"
+        )
+    
     st.divider()
     
     # ─────────────────────────────────────────────────────────────
@@ -92,6 +127,10 @@ def render():
     if selected_contracts:
         filtered_df = filtered_df[filtered_df["Contract"].isin(selected_contracts)]
     
+    # Priority filter
+    if selected_priority:
+        filtered_df = filtered_df[filtered_df["priority_level"].isin(selected_priority)]
+    
     # ─────────────────────────────────────────────────────────────
     # MAIN TABLE
     # ─────────────────────────────────────────────────────────────
@@ -99,18 +138,20 @@ def render():
     st.subheader(f"Customer List ({len(filtered_df)} of {len(batch_df)})")
     
     # Sort options
-    col1, col2 = st.columns([2, 2])
+    col1, col2, col3 = st.columns([2, 2, 1])
     
     with col1:
         sort_by = st.selectbox(
             "Sort by",
             options=[
+                "priority_score",
                 "churn_probability",
                 "MonthlyCharges",
                 "tenure",
                 "segment_confidence"
             ],
             format_func=lambda x: {
+                "priority_score": "Priority Score (High to Low)",
                 "churn_probability": "Churn Probability (High to Low)",
                 "MonthlyCharges": "Monthly Charges (High to Low)",
                 "tenure": "Tenure (Low to High)",
@@ -125,8 +166,13 @@ def render():
             key="action_search"
         )
     
+    with col3:
+        st.empty()  # Spacing
+    
     # Apply sort
-    if sort_by == "churn_probability":
+    if sort_by == "priority_score":
+        filtered_df = filtered_df.sort_values("priority_score", ascending=False)
+    elif sort_by == "churn_probability":
         filtered_df = filtered_df.sort_values("churn_probability", ascending=False)
     elif sort_by == "MonthlyCharges":
         filtered_df = filtered_df.sort_values("MonthlyCharges", ascending=False)
@@ -146,9 +192,11 @@ def render():
     # Display table
     display_cols = [
         "customerID",
+        "priority_percent",
+        "priority_level",
+        "churn_probability",
         "segment_label",
         "segment_confidence",
-        "churn_probability",
         "is_churner",
         "recommended_action",
         "MonthlyCharges",
@@ -161,8 +209,13 @@ def render():
     
     display_cols = [c for c in display_cols if c in filtered_df.columns]
     
+    # Format display DataFrame
+    display_df = filtered_df[display_cols].copy()
+    if "priority_percent" in display_df.columns:
+        display_df["priority_percent"] = display_df["priority_percent"].astype(str) + "%"
+    
     st.dataframe(
-        filtered_df[display_cols].head(100),
+        display_df.head(100),
         use_container_width=True,
         height=500
     )

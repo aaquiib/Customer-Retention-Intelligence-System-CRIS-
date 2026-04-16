@@ -2,6 +2,7 @@
 
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 from utils.data_processors import prepare_batch_result_df, aggregate_batch_summary
 from utils.chart_builders import (
     create_distribution_histogram,
@@ -53,8 +54,79 @@ def render():
     st.divider()
     
     # ─────────────────────────────────────────────────────────────
-    # CHURN PROBABILITY DISTRIBUTION HISTOGRAM
+    # AVERAGE PRIORITY BY RISK BAND
     # ─────────────────────────────────────────────────────────────
+    
+    st.subheader("Average Priority Score by Risk Band")
+    
+    # Extract priority scores
+    priority_scores = []
+    for pred in st.session_state.batch_predictions:
+        action_info = pred.get("recommended_action", {})
+        if isinstance(action_info, dict):
+            priority_score = action_info.get("priority_score", 0.5)
+        else:
+            priority_score = 0.5
+        priority_scores.append(priority_score)
+    
+    batch_df_priority = batch_df.copy()
+    batch_df_priority["priority_score"] = priority_scores
+    batch_df_priority["priority_percent"] = (batch_df_priority["priority_score"] * 100).round(0)
+    
+    # Add risk band
+    batch_df_priority["risk_band"] = batch_df_priority["churn_probability"].apply(
+        lambda x: "Low" if x < 0.35 else ("Medium" if x < 0.65 else "High")
+    )
+    
+    # Calculate average priority per risk band
+    risk_bands = ["Low", "Medium", "High"]
+    avg_priority = []
+    customer_counts = []
+    
+    for band in risk_bands:
+        band_data = batch_df_priority[batch_df_priority["risk_band"] == band]
+        if len(band_data) > 0:
+            avg_priority.append(band_data["priority_percent"].mean())
+            customer_counts.append(len(band_data))
+        else:
+            avg_priority.append(0)
+            customer_counts.append(0)
+    
+    fig_priority_by_risk = go.Figure()
+    
+    fig_priority_by_risk.add_trace(go.Bar(
+        x=risk_bands,
+        y=avg_priority,
+        marker=dict(
+            color=["#2ecc71", "#f39c12", "#e74c3c"],  # Green, Orange, Red
+        ),
+        text=[f"{p:.0f}%" for p in avg_priority],
+        textposition="auto",
+        hovertemplate="<b>%{x} Risk</b><br>Avg Priority: %{y:.1f}%<extra></extra>"
+    ))
+    
+    fig_priority_by_risk.update_layout(
+        title="Average Priority Score by Risk Band",
+        xaxis_title="Risk Band",
+        yaxis_title="Average Priority Score (%)",
+        template="plotly_white",
+        showlegend=False,
+        yaxis=dict(range=[0, 100])
+    )
+    
+    st.plotly_chart(fig_priority_by_risk, use_container_width=True)
+    
+    # Summary table
+    priority_summary = pd.DataFrame({
+        "Risk Band": risk_bands,
+        "Avg Priority %": [f"{p:.0f}%" for p in avg_priority],
+        "Customer Count": customer_counts,
+        "% of Total": [f"{(c/len(batch_df_priority)*100):.1f}%" if len(batch_df_priority) > 0 else "0%" for c in customer_counts]
+    })
+    
+    st.dataframe(priority_summary, use_container_width=True)
+    
+    st.divider()
     
     st.subheader("Churn Probability Distribution")
     

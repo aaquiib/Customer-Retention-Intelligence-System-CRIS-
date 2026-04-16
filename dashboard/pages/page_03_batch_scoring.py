@@ -3,6 +3,7 @@
 import streamlit as st
 import pandas as pd
 import io
+import plotly.graph_objects as go
 from utils.api_client import APIClient
 from utils.validators import parse_csv_file
 from utils.data_processors import aggregate_batch_summary, prepare_batch_result_df, get_top_customers_by_risk
@@ -173,6 +174,83 @@ def render():
                                 st.plotly_chart(fig, use_container_width=True)
                             else:
                                 st.info("No action distribution data.")
+                        
+                        st.divider()
+                        
+                        # ─────────────────────────────────────────────────────────────
+                        # PRIORITY SCORE DISTRIBUTION
+                        # ─────────────────────────────────────────────────────────────
+                        
+                        st.subheader("Priority Score Distribution")
+                        
+                        # Extract priority scores
+                        priority_scores = []
+                        for pred in predictions:
+                            action_info = pred.get("recommended_action", {})
+                            if isinstance(action_info, dict):
+                                priority_score = action_info.get("priority_score", 0.5)
+                            else:
+                                priority_score = 0.5
+                            priority_scores.append(priority_score)
+                        
+                        priority_percent = [int(p*100) for p in priority_scores]
+                        
+                        # Create histogram
+                        fig_priority = go.Figure()
+                        
+                        fig_priority.add_trace(go.Histogram(
+                            x=priority_percent,
+                            nbinsx=20,
+                            marker=dict(
+                                color=priority_percent,
+                                colorscale='RdYlGn_r',
+                                colorbar=dict(title="Priority %")
+                            ),
+                            hovertemplate="<b>Priority:</b> %{x}%<br><b>Count:</b> %{y}<extra></extra>"
+                        ))
+                        
+                        # Add threshold lines
+                        fig_priority.add_vline(x=67, line_dash="dash", line_color="red", annotation_text="High Priority", annotation_position="top left")
+                        fig_priority.add_vline(x=34, line_dash="dash", line_color="orange", annotation_text="Medium", annotation_position="top left")
+                        
+                        fig_priority.update_layout(
+                            title="Distribution of Action Priority Scores",
+                            xaxis_title="Priority Score (%)",
+                            yaxis_title="Number of Customers",
+                            hovermode="x unified",
+                            template="plotly_white",
+                            showlegend=False
+                        )
+                        
+                        st.plotly_chart(fig_priority, use_container_width=True)
+                        
+                        # Priority summary
+                        col1, col2, col3 = st.columns(3)
+                        
+                        high_priority = sum(1 for p in priority_percent if p >= 67)
+                        medium_priority = sum(1 for p in priority_percent if 34 <= p < 67)
+                        low_priority = sum(1 for p in priority_percent if p < 34)
+                        
+                        with col1:
+                            st.metric(
+                                "🔴 High Priority (67-100%)",
+                                high_priority,
+                                delta=f"{high_priority/len(priority_percent)*100:.1f}% of total"
+                            )
+                        
+                        with col2:
+                            st.metric(
+                                "🟡 Medium Priority (34-66%)",
+                                medium_priority,
+                                delta=f"{medium_priority/len(priority_percent)*100:.1f}% of total"
+                            )
+                        
+                        with col3:
+                            st.metric(
+                                "🟢 Low Priority (0-33%)",
+                                low_priority,
+                                delta=f"{low_priority/len(priority_percent)*100:.1f}% of total"
+                            )
                         
                         st.divider()
                         
