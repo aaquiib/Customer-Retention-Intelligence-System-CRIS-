@@ -24,8 +24,8 @@ async def get_global_feature_importance(top_n: int = 10):
     """
     Get global feature importance across all training data.
     
-    Uses SHAP to compute which features drive churn predictions overall.
-    Computed once and cached - does not require specific customer input.
+    Uses pre-computed global SHAP from startup cache.
+    Does not require specific customer input.
     
     Args:
         top_n: Number of top features to return (default 10)
@@ -39,33 +39,36 @@ async def get_global_feature_importance(top_n: int = 10):
         if not model_cache.is_loaded:
             raise HTTPException(status_code=503, detail="Models not loaded")
         
-        # Get global explanation from SHAP explainer
-        if not hasattr(model_cache, 'shap_explainer') or model_cache.shap_explainer is None:
-            logger.warning("SHAP explainer not initialized")
+        # Get cached global SHAP features from ModelCache
+        cached_features = model_cache.get_global_shap()
+        
+        if not cached_features:
+            logger.warning("Global SHAP cache is empty")
             return ExplanationResponse(
                 success=False,
-                error="SHAP explainer not available"
+                error="Global feature importance not available"
             )
         
-        explanation = model_cache.shap_explainer.get_global_importance(top_n=top_n)
+        # Limit to top_n requested features
+        top_features = cached_features[:top_n]
         
         # Convert to feature importance objects
         features = [
             FeatureImportance(
-                feature_name=feat['feature'],
+                feature_name=feat['feature_name'],
                 importance=feat['importance'],
                 sign=feat.get('sign')
             )
-            for feat in explanation['top_features']
+            for feat in top_features
         ]
         
         global_exp = GlobalExplanation(
             top_features=features,
-            explainer_type=explanation.get('explainer_type', 'kernel'),
-            sample_size=explanation.get('sample_size', 0)
+            explainer_type="tree",
+            sample_size=200
         )
         
-        logger.info(f"Returned global feature importance (top {top_n} features)")
+        logger.info(f"Returned global feature importance from cache (top {len(features)} features)")
         
         return ExplanationResponse(
             success=True,

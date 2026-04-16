@@ -2,9 +2,11 @@
 
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
+import numpy as np
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -40,6 +42,7 @@ class ModelCache:
         self.shap_explainer: Optional[SHAPExplainer] = None
         self.config = None
         self.is_loaded = False
+        self._global_shap_cache: Optional[List[Dict[str, Any]]] = None
     
     @classmethod
     def get_instance(cls) -> 'ModelCache':
@@ -47,6 +50,90 @@ class ModelCache:
         if cls._instance is None:
             cls._instance = ModelCache()
         return cls._instance
+    
+    def _compute_global_shap(self, top_n: int = 10) -> List[Dict[str, Any]]:
+        """
+        Pre-compute global SHAP feature importance on background samples.
+        
+        This is called once at startup to cache the computation.
+        Later requests use the cached result instead of recomputing.
+        
+        Args:
+            top_n: Number of top features to return
+        
+        Returns:
+            List of dicts: [{"feature_name": str, "importance": float, "sign": str}, ...]
+            Empty list if SHAP explainer not available or computation fails.
+        """
+        if not self.shap_explainer or not self.shap_explainer.explainer:
+            logger.warning("SHAP explainer not available, skipping global SHAP cache")
+            return []
+        
+        try:
+            t0 = time.time()
+            logger.info("Pre-computing global SHAP on background samples...")
+            
+            # Get background samples and explainer
+            background_X = self.shap_explainer.background_X
+            explainer = self.shap_explainer.explainer
+            
+            if background_X is None:
+                logger.warning("Background data not available for SHAP computation")
+                return []
+            
+            # Compute SHAP values for background samples
+            shap_vals = explainer.shap_values(background_X)
+            
+            # Handle binary classifier output: use positive class (class 1)
+            if isinstance(shap_vals, list):
+                shap_vals = shap_vals[1]
+            
+            logger.info(f"SHAP background computation took {time.time()-t0:.2f}s")
+            
+            # Compute mean absolute SHAP per feature
+            mean_abs_shap = np.abs(shap_vals).mean(axis=0)
+            
+            # Get feature names
+            feature_names = self.shap_explainer.feature_names
+            if not feature_names:
+                logger.warning("Feature names not available from SHAP explainer")
+                return []
+            
+            # Build top-N features list
+            top_indices = np.argsort(mean_abs_shap)[-top_n:][::-1]
+            
+            top_features = []
+            for idx in top_indices:
+                feature_name = feature_names[idx] if idx < len(feature_names) else f"feature_{idx}"
+                importance = float(mean_abs_shap[idx])
+                
+                # Determine sign: compute mean SHAP for this feature
+                mean_shap = shap_vals[:, idx].mean()
+                sign = "positive" if mean_shap > 0 else "negative"
+                
+                top_features.append({
+                    "feature_name": str(feature_name),
+                    "importance": importance,
+                    "sign": sign
+                })
+            
+            logger.info(f"Global SHAP cache computed with top {len(top_features)} features")
+            return top_features
+        
+        except Exception as e:
+            logger.warning(f"Failed to compute global SHAP cache: {e}")
+            return []
+    
+    def get_global_shap(self) -> List[Dict[str, Any]]:
+        """
+        Get pre-computed global SHAP feature importance.
+        
+        Returns the cached result computed at startup.
+        
+        Returns:
+            List of dicts with feature importance, or empty list if not available.
+        """
+        return self._global_shap_cache if self._global_shap_cache is not None else []
     
     def load_models(self) -> None:
         """Load all models at startup."""
@@ -76,6 +163,12 @@ class ModelCache:
             
             self.is_loaded = True
             logger.info("✓ All models loaded successfully")
+            
+            # Pre-compute global SHAP feature importance on background samples
+            logger.info("Pre-computing global SHAP on background samples...")
+            self._global_shap_cache = self._compute_global_shap(top_n=10)
+            logger.info("Global SHAP cache ready.")
+        
         except Exception as e:
             logger.error(f"Failed to load models: {e}")
             raise
@@ -100,6 +193,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting CRIS API server...")
     model_cache = ModelCache.get_instance()
     model_cache.load_models()
+    logger.info("ModelCache warm — global SHAP pre-computed. Ready to serve requests.")
     
     yield
     

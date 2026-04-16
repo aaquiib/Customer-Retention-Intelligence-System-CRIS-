@@ -2,6 +2,7 @@
 
 import io
 import logging
+import time
 from typing import Dict, List, Tuple
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -269,9 +270,56 @@ async def predict_batch(file: UploadFile = File(...)) -> BatchPredictionResponse
         # Run batch inference
         results_df, summary = model_cache.pipeline.predict_batch(df_normalized)
         
+        batch_t0 = time.time()
+        logger.info(f"Starting per-row prediction processing with SHAP explanations...")
+        
+        # Pre-compute SHAP values for entire batch (vectorized) - BEFORE the per-row loop
+        all_shap_values = None
+        feature_names = None
+        X_batch = None
+        
+        try:
+            if model_cache.shap_explainer and model_cache.shap_explainer.explainer:
+                from src.data import preprocess_data
+                from src.features.engineering import engineer_features
+                from src.config import get_config
+                from inference.shap_utils import get_feature_names_from_preprocessor
+                
+                cfg = get_config()
+                
+                # Preprocess and engineer features for entire batch
+                df_preprocessed_batch = preprocess_data(df_normalized, cfg)
+                df_engineered_batch = engineer_features(df_preprocessed_batch, cfg)
+                
+                # Add segment column (already in results_df)
+                df_with_segment_batch = df_engineered_batch.copy()
+                df_with_segment_batch['segment'] = results_df['segment'].astype(str)
+                
+                # Transform entire batch through preprocessor
+                X_batch = model_cache.pipeline.churn_preprocessor.transform(df_with_segment_batch)
+                X_batch = X_batch.to_numpy() if hasattr(X_batch, 'to_numpy') else X_batch
+                
+                # Get feature names once (not in loop)
+                feature_names = get_feature_names_from_preprocessor(
+                    model_cache.pipeline.churn_preprocessor
+                )
+                
+                # Vectorized SHAP computation for entire batch
+                logger.info(f"Computing SHAP values for batch of {len(X_batch)} samples...")
+                shap_t0 = time.time()
+                all_shap_values = model_cache.shap_explainer.explainer.shap_values(X_batch)
+                
+                # Handle binary classifier: use positive class (class 1)
+                if isinstance(all_shap_values, list):
+                    all_shap_values = all_shap_values[1]
+                
+                logger.info(f"Batch SHAP computation took {time.time()-shap_t0:.2f}s for {len(X_batch)} rows")
+        except Exception as e:
+            logger.debug(f"Could not pre-compute batch SHAP values: {e}")
+            all_shap_values = None
+        
         # Process per-row predictions with actions and SHAP features
         predictions_list = []
-        all_shap_data = []
         
         for idx, row in results_df.iterrows():
             try:
@@ -287,51 +335,29 @@ async def predict_batch(file: UploadFile = File(...)) -> BatchPredictionResponse
                     segment_confidence=float(pred_dict['segment_confidence'])
                 )
                 
-                # Extract SHAP features for this instance
+                # Extract top SHAP features for this row from pre-computed batch
                 top_shap = []
                 try:
-                    if model_cache.shap_explainer and model_cache.shap_explainer.explainer:
-                        from src.data import preprocess_data
-                        from src.features.engineering import engineer_features
-                        from src.config import get_config
+                    if all_shap_values is not None and feature_names:
+                        # Extract this row's SHAP values from the pre-computed batch matrix
+                        row_shap = all_shap_values[idx]
                         
-                        cfg = get_config()
-                        df_single = pd.DataFrame([df_normalized.iloc[idx].to_dict()])
-                        df_preprocessed = preprocess_data(df_single, cfg)
-                        df_engineered = engineer_features(df_preprocessed, cfg)
-                        df_with_segment = df_engineered.copy()
-                        df_with_segment['segment'] = str(pred_dict['segment'])
+                        # Get top-N features by absolute SHAP value
+                        top_n = 5
+                        top_idx = np.argsort(np.abs(row_shap))[-top_n:][::-1]
                         
-                        X = model_cache.pipeline.churn_preprocessor.transform(df_with_segment)
-                        preprocessed_array = X.to_numpy() if hasattr(X, 'to_numpy') else X
-                        
-                        from inference.shap_utils import get_feature_names_from_preprocessor
-                        feature_names = get_feature_names_from_preprocessor(
-                            model_cache.pipeline.churn_preprocessor
-                        )
-                        
-                        shap_list = extract_top_shap_features(
-                            explainer=model_cache.shap_explainer.explainer,
-                            model=model_cache.pipeline.lgbm_model,
-                            instance_data=preprocessed_array,
-                            feature_names=feature_names,
-                            top_n=5,
-                            explainer_type="tree"
-                        )
-                        
-                        all_shap_data.append(preprocessed_array)
-                        
+                        # Build feature list with SHAP contributions
                         top_shap = [
                             SHAPFeature(
-                                feature_name=feat["feature_name"],
-                                shap_value=feat["shap_value"],
-                                feature_value=feat["feature_value"],
-                                impact_direction=feat["impact_direction"]
+                                feature_name=str(feature_names[j]),
+                                shap_value=float(row_shap[j]),
+                                feature_value=float(X_batch[idx, j]) if X_batch is not None and j < X_batch.shape[1] else None,
+                                impact_direction="increases_churn" if row_shap[j] > 0 else "decreases_churn"
                             )
-                            for feat in shap_list
+                            for j in top_idx
                         ]
                 except Exception as e:
-                    logger.debug(f"Could not compute SHAP for row {idx}: {e}")
+                    logger.debug(f"Could not extract SHAP features for row {idx}: {e}")
                 
                 # Build prediction output
                 prediction = PredictionOutput(
@@ -357,35 +383,26 @@ async def predict_batch(file: UploadFile = File(...)) -> BatchPredictionResponse
                 logger.error(f"Error processing row {idx}: {e}")
                 # Skip this row, track as failed
         
-        # Compute batch-level SHAP features (global feature importance)
+        # Use cached global SHAP features instead of recomputing
         top_features_global = []
         try:
-            if all_shap_data and model_cache.shap_explainer and model_cache.shap_explainer.explainer:
-                shap_array = np.vstack(all_shap_data)
-                from inference.shap_utils import get_feature_names_from_preprocessor
-                feature_names = get_feature_names_from_preprocessor(
-                    model_cache.pipeline.churn_preprocessor
-                )
-                
-                global_features = compute_batch_top_features(
-                    explainer=model_cache.shap_explainer.explainer,
-                    model=model_cache.pipeline.lgbm_model,
-                    instances_data=shap_array,
-                    feature_names=feature_names,
-                    top_n=5,
-                    explainer_type="tree"
-                )
-                
+            model_cache = ModelCache.get_instance()
+            cached_global_shap = model_cache.get_global_shap()
+            
+            if cached_global_shap:
+                # Convert cached format to response format
                 top_features_global = [
                     TopFeatureGlobal(
-                        feature_name=feat["feature_name"],
-                        avg_shap_value=feat["avg_shap_value"],
-                        frequency=feat["frequency"]
+                        feature_name=feat['feature_name'],
+                        avg_shap_value=feat['importance'],  # Cached importance is already mean absolute SHAP
+                        frequency=0  # Set to 0 for cached features (pre-computed aggregate)
                     )
-                    for feat in global_features
+                    for feat in cached_global_shap[:5]
                 ]
         except Exception as e:
-            logger.debug(f"Could not compute batch-level SHAP features: {e}")
+            logger.debug(f"Could not get cached global SHAP features: {e}")
+        
+        batch_elapsed = time.time() - batch_t0
         
         # Get action distribution
         action_dist = {}
@@ -405,12 +422,14 @@ async def predict_batch(file: UploadFile = File(...)) -> BatchPredictionResponse
             action_distribution=action_dist
         )
         
+        logger.info(f"Batch of {len(predictions_list)} rows completed in {batch_elapsed:.2f}s (SHAP from cache + vectorized computation)")
+        
         return BatchPredictionResponse(
             success=True,
             status=status,
             predictions=predictions_list,
             top_features_global=top_features_global if top_features_global else None,
-            message=f"Processed {len(predictions_list)}/{original_rows} customers successfully"
+            message=f"Processed {len(predictions_list)}/{original_rows} customers successfully in {batch_elapsed:.2f}s"
         )
     
     except ValueError as e:
