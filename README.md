@@ -3,6 +3,7 @@
 A production-ready machine learning system for **predicting customer churn**, **segmenting customers**, and **recommending retention actions**. CRIS combines advanced segmentation (K-Prototypes clustering), interpretable churn prediction (LightGBM), and explainability (SHAP) in a unified platform with dual interfaces: interactive Streamlit dashboard and production FastAPI service.
 
 **Status:** **Version:** 1.0 (April 2026) | **License:** Aaquib Nawaz Khan
+
 **Live link:** https://cris-dashboard.onrender.com/
 
 ---
